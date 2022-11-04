@@ -80,8 +80,8 @@ impl Lexer {
             '}' => Token::RBrace,
             '\0' => Token::Eof,
             c if c.is_letter() => {
-                let identifier = self.read_identifier();
-                return self.lookup_identifier(identifier);
+                let ident = self.read_identifier();
+                return self.lookup_identifier(ident);
             }
             c if c.is_digit(10) => {
                 let int = self.read_number();
@@ -94,8 +94,8 @@ impl Lexer {
         token
     }
 
-    fn lookup_identifier(&self, s: String) -> Token {
-        match s.as_str() {
+    fn lookup_identifier(&self, ident: String) -> Token {
+        match ident.as_str() {
             "fn" => Token::Function,
             "let" => Token::Let,
             "true" => Token::True,
@@ -103,7 +103,7 @@ impl Lexer {
             "if" => Token::If,
             "else" => Token::Else,
             "return" => Token::Return,
-            _ => Token::Ident(s),
+            _ => Token::Ident(ident),
         }
     }
 
@@ -148,7 +148,6 @@ impl Iterator for Lexer {
 
 #[cfg(test)]
 mod tests {
-    use super::super::token::Token;
     use super::*;
 
     macro_rules! input_produces_tokens {
