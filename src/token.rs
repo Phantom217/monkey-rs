@@ -1,26 +1,26 @@
 #[derive(Debug, PartialEq)]
 pub enum Token {
-    ILLEGAL,
-    EOF,
+    Illegal(char),
+    Eof,
 
     // Identifiers + literals
-    IDENT(String),
-    INT(isize),
+    Ident(String),
+    Int(isize),
 
     // Operators
-    ASSIGN,
-    PLUS,
+    Assign,
+    Plus,
 
     // Delimiters
-    COMMA,
-    SEMICOLON,
+    Comma,
+    Semicolon,
 
-    LPAREN,
-    RPAREN,
-    LBRACE,
-    RBRACE,
+    LParen,
+    RParen,
+    LBrace,
+    RBrace,
 
     // Keywords
-    FUNCTION,
-    LET,
+    Function,
+    Let,
 }
