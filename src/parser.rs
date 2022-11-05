@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Program, Statement},
+    ast::{Expr, Program, Statement},
     lexer::Lexer,
     token::Token,
 };
@@ -71,6 +71,7 @@ impl Parser {
     fn parse_statement(&mut self) -> Result<Statement> {
         match &self.cur_token {
             Token::Let => self.parse_let_statement(),
+            Token::Return => self.parse_return_statement(),
             // TODO: remove when finished implementing Parser
             token => Err(ParserError::Unimplemented(token.clone())),
         }
@@ -92,15 +93,25 @@ impl Parser {
         // TODO: We're skipping the expressions until we encounter a semicolon
         // cur_token: Assign, peek_token: beginning of expression
         self.next_token();
-        while self.peek_token != Token::Semicolon {
+        while self.cur_token != Token::Semicolon {
             self.next_token();
         }
 
-        if self.peek_token == Token::Semicolon {
+        // if self.peek_token == Token::Semicolon {
+        //     self.next_token();
+        // }
+
+        Ok(Statement::Let(identifier, std::marker::PhantomData::<Expr>))
+    }
+
+    fn parse_return_statement(&mut self) -> Result<Statement> {
+        let statement = Statement::Return(std::marker::PhantomData::<Expr>);
+
+        while self.cur_token != Token::Semicolon {
             self.next_token();
         }
 
-        Ok(Statement::Let(identifier, ()))
+        Ok(statement)
     }
 
     pub fn check_parser_errors(&self) {
@@ -134,9 +145,31 @@ let foobar = 838383;
         parser.check_parser_errors();
 
         let expected = vec![
-            Statement::Let("x".to_string(), ()),
-            Statement::Let("y".to_string(), ()),
-            Statement::Let("foobar".to_string(), ()),
+            Statement::Let("x".to_string(), std::marker::PhantomData::<Expr>),
+            Statement::Let("y".to_string(), std::marker::PhantomData::<Expr>),
+            Statement::Let("foobar".to_string(), std::marker::PhantomData::<Expr>),
+        ];
+
+        assert_eq!(program.statements, expected);
+    }
+
+    #[test]
+    fn test_return_statements() {
+        let input = r"
+return 5;
+return 10;
+return 993322;
+";
+
+        let lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        parser.check_parser_errors();
+
+        let expected = vec![
+            Statement::Return(std::marker::PhantomData::<Expr>),
+            Statement::Return(std::marker::PhantomData::<Expr>),
+            Statement::Return(std::marker::PhantomData::<Expr>),
         ];
 
         assert_eq!(program.statements, expected);
