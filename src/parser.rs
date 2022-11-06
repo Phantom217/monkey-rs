@@ -26,8 +26,8 @@ enum Precedence {
     Call,        // my_function(X)
 }
 
-impl From<Token> for Precedence {
-    fn from(token: Token) -> Self {
+impl From<&Token> for Precedence {
+    fn from(token: &Token) -> Self {
         match token {
             Token::LParen => Self::Call,
             Token::Asterisk | Token::Slash => Self::Product,
@@ -149,11 +149,23 @@ impl Parser {
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Expr> {
-        let mut left_exp = self.parse_prefix()?;
+        let mut left_expr = self.parse_prefix()?;
 
-        // TODO
+        while self.peek_token != Token::Semicolon && precedence < Precedence::from(&self.peek_token)
+        {
+            left_expr = match Precedence::from(&self.peek_token) {
+                Precedence::Equals
+                | Precedence::LessGreater
+                | Precedence::Sum
+                | Precedence::Product => {
+                    self.next_token();
+                    self.parse_infix_expression(Box::new(left_expr))?
+                }
+                _ => todo!(),
+            }
+        }
 
-        Ok(left_exp)
+        Ok(left_expr)
     }
 
     fn parse_prefix(&mut self) -> Result<Expr> {
@@ -173,6 +185,18 @@ impl Parser {
         let right = self.parse_expression(Precedence::Prefix)?;
 
         Ok(Expr::Prefix(cur_token, Box::new(right)))
+    }
+
+    fn parse_infix_expression(&mut self, left: Box<Expr>) -> Result<Expr> {
+        let token = self.cur_token.clone();
+        let right = {
+            let precedence = Precedence::from(&token);
+            self.next_token();
+            let expr = self.parse_expression(precedence)?;
+            Box::new(expr)
+        };
+
+        Ok(Expr::Infix(left, token, right))
     }
 
     #[cfg(test)] // function is currently not used for anything other than tests
@@ -311,5 +335,114 @@ mod test_expressions {
         ];
 
         assert_eq!(program.statements, expected);
+    }
+
+    #[test]
+    fn test_infix_expression() {
+        let input = r"
+5 + 5;
+5 - 5;
+5 * 5;
+5 / 5;
+5 > 5;
+5 < 5;
+5 == 5;
+5 != 5;
+";
+
+        let (parser, program) = init_test(input);
+        parser.check_parser_errors();
+
+        let expected = vec![
+            Statement::Expression(Expr::Infix(
+                Box::new(Expr::Integer(5)),
+                Token::Plus,
+                Box::new(Expr::Integer(5)),
+            )),
+            Statement::Expression(Expr::Infix(
+                Box::new(Expr::Integer(5)),
+                Token::Minus,
+                Box::new(Expr::Integer(5)),
+            )),
+            Statement::Expression(Expr::Infix(
+                Box::new(Expr::Integer(5)),
+                Token::Asterisk,
+                Box::new(Expr::Integer(5)),
+            )),
+            Statement::Expression(Expr::Infix(
+                Box::new(Expr::Integer(5)),
+                Token::Slash,
+                Box::new(Expr::Integer(5)),
+            )),
+            Statement::Expression(Expr::Infix(
+                Box::new(Expr::Integer(5)),
+                Token::Gt,
+                Box::new(Expr::Integer(5)),
+            )),
+            Statement::Expression(Expr::Infix(
+                Box::new(Expr::Integer(5)),
+                Token::Lt,
+                Box::new(Expr::Integer(5)),
+            )),
+            Statement::Expression(Expr::Infix(
+                Box::new(Expr::Integer(5)),
+                Token::Eq,
+                Box::new(Expr::Integer(5)),
+            )),
+            Statement::Expression(Expr::Infix(
+                Box::new(Expr::Integer(5)),
+                Token::NotEq,
+                Box::new(Expr::Integer(5)),
+            )),
+        ];
+
+        assert_eq!(program.statements, expected);
+    }
+
+    #[test]
+    fn test_operator_precedence_parsing() {
+        let tests: Vec<(&str, &str)> = vec![
+            ("-a * b", "((-a) * b)"),
+            ("!-a", "(!(-a))"),
+            ("a + b + c", "((a + b) + c)"),
+            ("a + b - c", "((a + b) - c)"),
+            ("a * b * c", "((a * b) * c)"),
+            ("a * b / c", "((a * b) / c)"),
+            ("a + b / c", "(a + (b / c))"),
+            ("a + b * c + d / e - f", "(((a + (b * c)) + (d / e)) - f)"),
+            ("3 + 4; -5 * 5", "(3 + 4)((-5) * 5)"),
+            ("5 > 4 == 3 < 4", "((5 > 4) == (3 < 4))"),
+            ("5 < 4 != 3 > 4", "((5 < 4) != (3 > 4))"),
+            (
+                "3 + 4 * 5 == 3 * 1 + 4 * 5",
+                "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
+            ),
+            // ("true", "true"),
+            // ("false", "false"),
+            // ("3 > 5 == false", "((3 > 5) == false)"),
+            // ("3 < 5 == true", "((3 < 5) == true)"),
+            // ("1 + (2 + 3) + 4", "((1 + (2 + 3)) + 4)"),
+            // ("(5 + 5) * 2", "((5 + 5) * 2)"),
+            // ("2 / (5 + 5)", "(2 / (5 + 5))"),
+            // ("(5 + 5) * 2 * (5 + 5)", "(((5 + 5) * 2) * (5 + 5))"),
+            // ("-(5 + 5)", "(-(5 + 5))"),
+            // ("!(true == true)", "(!(true == true))"),
+            // ("a + add(b * c) + d", "((a + add((b * c))) + d)"),
+            // (
+            //     "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))",
+            //     "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))",
+            // ),
+            // (
+            //     "add(a + b + c * d / f + g)",
+            //     "add((((a + b) + ((c * d) / f)) + g))",
+            // ),
+        ];
+
+        for (input, expected) in tests {
+            let (parser, program) = init_test(input);
+            parser.check_parser_errors();
+
+            assert_eq!(program.to_string(), expected);
+        }
     }
 }

@@ -7,6 +7,13 @@ pub struct Program {
     pub(crate) statements: Vec<Statement>,
 }
 
+impl fmt::Display for Program {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s: String = self.statements.iter().map(|x| x.to_string()).collect();
+        f.write_str(&s)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     Let(String, Expr),                      // Let(Identifier, Value)
@@ -27,6 +34,7 @@ impl fmt::Display for Statement {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Identifier(String),
+    Infix(Box<Expr>, Token, Box<Expr>),
     Integer(i64),
     Prefix(Token, Box<Expr>),
     Str(&'static str),
@@ -36,6 +44,7 @@ impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Identifier(ident) => write!(f, "{ident}"),
+            Self::Infix(left, op, right) => write!(f, "({left} {op} {right})"),
             Self::Integer(int) => write!(f, "{int}"),
             Self::Prefix(token, expr) => write!(f, "({token}{expr})"),
             Self::Str(s) => write!(f, "{s}"),
