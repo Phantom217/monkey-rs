@@ -33,6 +33,7 @@ impl fmt::Display for Statement {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
+    Boolean(bool),
     Identifier(String),
     Infix(Box<Expr>, Token, Box<Expr>),
     Integer(i64),
@@ -43,6 +44,7 @@ pub enum Expr {
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Boolean(bool) => write!(f, "{bool}"),
             Self::Identifier(ident) => write!(f, "{ident}"),
             Self::Infix(left, op, right) => write!(f, "({left} {op} {right})"),
             Self::Integer(int) => write!(f, "{int}"),

@@ -174,6 +174,8 @@ impl Parser {
             Token::Ident(ident) => Ok(Expr::Identifier(ident.clone())),
             Token::Int(int) => Ok(Expr::Integer(*int)),
             Token::Bang | Token::Minus => self.parse_prefix_expression(),
+            Token::True => Ok(Expr::Boolean(true)),
+            Token::False => Ok(Expr::Boolean(false)),
             token => Err(ParserError::ExpectedPrefixToken(token.clone())),
         }
     }
@@ -325,6 +327,8 @@ mod test_expressions {
         let input = r"
 !5;
 -15;
+!true;
+!false;
 ";
 
         let (parser, program) = init_test(input);
@@ -333,6 +337,8 @@ mod test_expressions {
         let expected = vec![
             Statement::Expression(Expr::Prefix(Token::Bang, Box::new(Expr::Integer(5)))),
             Statement::Expression(Expr::Prefix(Token::Minus, Box::new(Expr::Integer(15)))),
+            Statement::Expression(Expr::Prefix(Token::Bang, Box::new(Expr::Boolean(true)))),
+            Statement::Expression(Expr::Prefix(Token::Bang, Box::new(Expr::Boolean(false)))),
         ];
 
         assert_eq!(program.statements, expected);
@@ -349,6 +355,8 @@ mod test_expressions {
 5 < 5;
 5 == 5;
 5 != 5;
+true == true;
+true != false;
 ";
 
         let (parser, program) = init_test(input);
@@ -395,6 +403,16 @@ mod test_expressions {
                 Token::NotEq,
                 Box::new(Expr::Integer(5)),
             )),
+            Statement::Expression(Expr::Infix(
+                Box::new(Expr::Boolean(true)),
+                Token::Eq,
+                Box::new(Expr::Boolean(true)),
+            )),
+            Statement::Expression(Expr::Infix(
+                Box::new(Expr::Boolean(true)),
+                Token::NotEq,
+                Box::new(Expr::Boolean(false)),
+            )),
         ];
 
         assert_eq!(program.statements, expected);
@@ -418,10 +436,10 @@ mod test_expressions {
                 "3 + 4 * 5 == 3 * 1 + 4 * 5",
                 "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
             ),
-            // ("true", "true"),
-            // ("false", "false"),
-            // ("3 > 5 == false", "((3 > 5) == false)"),
-            // ("3 < 5 == true", "((3 < 5) == true)"),
+            ("true", "true"),
+            ("false", "false"),
+            ("3 > 5 == false", "((3 > 5) == false)"),
+            ("3 < 5 == true", "((3 < 5) == true)"),
             // ("1 + (2 + 3) + 4", "((1 + (2 + 3)) + 4)"),
             // ("(5 + 5) * 2", "((5 + 5) * 2)"),
             // ("2 / (5 + 5)", "(2 / (5 + 5))"),
@@ -445,5 +463,29 @@ mod test_expressions {
 
             assert_eq!(program.to_string(), expected);
         }
+    }
+
+    #[test]
+    fn test_boolean() {
+        let input = r"
+true;
+false;
+";
+        //         let input = r"
+        // true;
+        // false;
+        // let foobar = true;
+        // ";
+
+        let (parser, program) = init_test(input);
+        parser.check_parser_errors();
+
+        let expected = vec![
+            Statement::Expression(Expr::Boolean(true)),
+            Statement::Expression(Expr::Boolean(false)),
+            // Statement::Let("foobar".to_string(), Expr::Boolean(true)),
+        ];
+
+        assert_eq!(program.statements, expected);
     }
 }
