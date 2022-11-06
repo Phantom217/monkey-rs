@@ -151,6 +151,8 @@ impl Parser {
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Expr> {
         let mut left_exp = self.parse_prefix()?;
 
+        // TODO
+
         Ok(left_exp)
     }
 
@@ -158,8 +160,19 @@ impl Parser {
         match &self.cur_token {
             Token::Ident(ident) => Ok(Expr::Identifier(ident.clone())),
             Token::Int(int) => Ok(Expr::Integer(*int)),
+            Token::Bang | Token::Minus => self.parse_prefix_expression(),
             token => Err(ParserError::ExpectedPrefixToken(token.clone())),
         }
+    }
+
+    fn parse_prefix_expression(&mut self) -> Result<Expr> {
+        let cur_token = self.cur_token.clone();
+
+        self.next_token();
+
+        let right = self.parse_expression(Precedence::Prefix)?;
+
+        Ok(Expr::Prefix(cur_token, Box::new(right)))
     }
 
     #[cfg(test)] // function is currently not used for anything other than tests
@@ -176,8 +189,26 @@ impl Parser {
 }
 
 #[cfg(test)]
+mod test_precedence {
+    use super::*;
+
+    #[test]
+    fn test_ord() {
+        assert!(Precedence::Lowest < Precedence::Equals);
+        assert!(Precedence::Equals > Precedence::Lowest);
+    }
+}
+
+#[cfg(test)]
 mod test_statements {
     use super::*;
+
+    fn init_test(input: &str) -> (Parser, Program) {
+        let lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        (parser, program)
+    }
 
     #[test]
     fn test_let_statements() {
@@ -186,9 +217,7 @@ let x = 5;
 let y = 10;
 let foobar = 838383;
 ";
-        let lexer = Lexer::new(input.to_string());
-        let mut parser = Parser::new(lexer);
-        let program = parser.parse_program();
+        let (parser, program) = init_test(input);
         parser.check_parser_errors();
 
         let expected = vec![
@@ -208,9 +237,7 @@ return 10;
 return 993322;
 ";
 
-        let lexer = Lexer::new(input.to_string());
-        let mut parser = Parser::new(lexer);
-        let program = parser.parse_program();
+        let (parser, program) = init_test(input);
         parser.check_parser_errors();
 
         let expected = vec![
@@ -227,13 +254,18 @@ return 993322;
 mod test_expressions {
     use super::*;
 
+    fn init_test(input: &str) -> (Parser, Program) {
+        let lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        (parser, program)
+    }
+
     #[test]
     fn test_identifier_expression() {
         let input = "foobar;";
 
-        let lexer = Lexer::new(input.to_string());
-        let mut parser = Parser::new(lexer);
-        let program = parser.parse_program();
+        let (parser, program) = init_test(input);
         parser.check_parser_errors();
 
         let expected = vec![Statement::Expression(Expr::Identifier(
@@ -247,12 +279,36 @@ mod test_expressions {
     fn test_integer_literal_expression() {
         let input = "5;";
 
-        let lexer = Lexer::new(input.to_string());
-        let mut parser = Parser::new(lexer);
-        let program = parser.parse_program();
+        let (parser, program) = init_test(input);
         parser.check_parser_errors();
 
         let expected = vec![Statement::Expression(Expr::Integer(5))];
+
+        assert_eq!(program.statements, expected);
+    }
+
+    #[test]
+    fn test_parse_prefix_expression() {
+        //         let input = r"
+        // !5;
+        // -15;
+        // !foobar;
+        // -foobar;
+        // !true;
+        // !false;
+        // ";
+        let input = r"
+!5;
+-15;
+";
+
+        let (parser, program) = init_test(input);
+        parser.check_parser_errors();
+
+        let expected = vec![
+            Statement::Expression(Expr::Prefix(Token::Bang, Box::new(Expr::Integer(5)))),
+            Statement::Expression(Expr::Prefix(Token::Minus, Box::new(Expr::Integer(15)))),
+        ];
 
         assert_eq!(program.statements, expected);
     }

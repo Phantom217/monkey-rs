@@ -1,5 +1,7 @@
 use std::fmt;
 
+use crate::token::Token;
+
 #[derive(Debug)]
 pub struct Program {
     pub(crate) statements: Vec<Statement>,
@@ -26,6 +28,7 @@ impl fmt::Display for Statement {
 pub enum Expr {
     Identifier(String),
     Integer(i64),
+    Prefix(Token, Box<Expr>),
     Str(&'static str),
 }
 
@@ -34,6 +37,7 @@ impl fmt::Display for Expr {
         match self {
             Self::Identifier(ident) => write!(f, "{ident}"),
             Self::Integer(int) => write!(f, "{int}"),
+            Self::Prefix(token, expr) => write!(f, "({token}{expr})"),
             Self::Str(s) => write!(f, "{s}"),
         }
     }
