@@ -11,7 +11,32 @@ enum ParserError {
     ExpectedIdent(Token),
     ExpectedAssign(Token),
     ExpectedToken { expected: Token, got: Token },
+    ExpectedPrefixToken(Token),
     Unimplemented(Token),
+}
+
+#[derive(Debug, PartialEq, PartialOrd)]
+enum Precedence {
+    Lowest = 1,
+    Equals,      // ==
+    LessGreater, // >, <
+    Sum,         // +
+    Product,     // *
+    Prefix,      // -X, !X
+    Call,        // my_function(X)
+}
+
+impl From<Token> for Precedence {
+    fn from(token: Token) -> Self {
+        match token {
+            Token::LParen => Self::Call,
+            Token::Asterisk | Token::Slash => Self::Product,
+            Token::Plus | Token::Minus => Self::Sum,
+            Token::Lt | Token::Gt => Self::LessGreater,
+            Token::Eq | Token::NotEq => Self::Equals,
+            _ => Self::Lowest,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -72,8 +97,7 @@ impl Parser {
         match &self.cur_token {
             Token::Let => self.parse_let_statement(),
             Token::Return => self.parse_return_statement(),
-            // TODO: remove when finished implementing Parser
-            token => Err(ParserError::Unimplemented(token.clone())),
+            _ => self.parse_expression_statement(),
         }
     }
 
@@ -101,7 +125,7 @@ impl Parser {
         //     self.next_token();
         // }
 
-        Ok(Statement::Let(identifier, std::marker::PhantomData::<Expr>))
+        Ok(Statement::Let(identifier, Expr::Str("")))
     }
 
     fn parse_return_statement(&mut self) -> Result<Statement> {
@@ -114,7 +138,31 @@ impl Parser {
         Ok(statement)
     }
 
-    pub fn check_parser_errors(&self) {
+    fn parse_expression_statement(&mut self) -> Result<Statement> {
+        let stmt = Statement::Expression(self.parse_expression(Precedence::Lowest)?);
+
+        if self.peek_token == Token::Semicolon {
+            self.next_token();
+        }
+
+        Ok(stmt)
+    }
+
+    fn parse_expression(&mut self, precedence: Precedence) -> Result<Expr> {
+        let mut left_exp = self.parse_prefix()?;
+
+        Ok(left_exp)
+    }
+
+    fn parse_prefix(&mut self) -> Result<Expr> {
+        match &self.cur_token {
+            Token::Ident(ident) => Ok(Expr::Identifier(ident.clone())),
+            token => Err(ParserError::ExpectedPrefixToken(token.clone())),
+        }
+    }
+
+    #[cfg(test)] // function is currently not used for anything other than tests
+    fn check_parser_errors(&self) {
         if self.errors.is_empty() {
             return;
         }
@@ -127,9 +175,7 @@ impl Parser {
 }
 
 #[cfg(test)]
-mod tests {
-    use crate::lexer::Lexer;
-
+mod test_statements {
     use super::*;
 
     #[test]
@@ -145,9 +191,9 @@ let foobar = 838383;
         parser.check_parser_errors();
 
         let expected = vec![
-            Statement::Let("x".to_string(), std::marker::PhantomData::<Expr>),
-            Statement::Let("y".to_string(), std::marker::PhantomData::<Expr>),
-            Statement::Let("foobar".to_string(), std::marker::PhantomData::<Expr>),
+            Statement::Let("x".to_string(), Expr::Str("")),
+            Statement::Let("y".to_string(), Expr::Str("")),
+            Statement::Let("foobar".to_string(), Expr::Str("")),
         ];
 
         assert_eq!(program.statements, expected);
@@ -171,6 +217,27 @@ return 993322;
             Statement::Return(std::marker::PhantomData::<Expr>),
             Statement::Return(std::marker::PhantomData::<Expr>),
         ];
+
+        assert_eq!(program.statements, expected);
+    }
+}
+
+#[cfg(test)]
+mod test_expressions {
+    use super::*;
+
+    #[test]
+    fn test_identifier_expression() {
+        let input = "foobar;";
+
+        let lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        parser.check_parser_errors();
+
+        let expected = vec![Statement::Expression(Expr::Identifier(
+            "foobar".to_string(),
+        ))];
 
         assert_eq!(program.statements, expected);
     }
