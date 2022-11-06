@@ -6,6 +6,7 @@ use crate::{
 
 type Result<T> = std::result::Result<T, ParserError>;
 
+#[allow(dead_code)]
 #[derive(Debug)]
 enum ParserError {
     ExpectedIdent(Token),
