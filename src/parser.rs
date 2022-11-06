@@ -157,6 +157,7 @@ impl Parser {
     fn parse_prefix(&mut self) -> Result<Expr> {
         match &self.cur_token {
             Token::Ident(ident) => Ok(Expr::Identifier(ident.clone())),
+            Token::Int(int) => Ok(Expr::Integer(*int)),
             token => Err(ParserError::ExpectedPrefixToken(token.clone())),
         }
     }
@@ -238,6 +239,20 @@ mod test_expressions {
         let expected = vec![Statement::Expression(Expr::Identifier(
             "foobar".to_string(),
         ))];
+
+        assert_eq!(program.statements, expected);
+    }
+
+    #[test]
+    fn test_integer_literal_expression() {
+        let input = "5;";
+
+        let lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        parser.check_parser_errors();
+
+        let expected = vec![Statement::Expression(Expr::Integer(5))];
 
         assert_eq!(program.statements, expected);
     }

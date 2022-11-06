@@ -17,21 +17,23 @@ impl fmt::Display for Statement {
         match self {
             Self::Let(s, e) => write!(f, "let {s} = {e};"),
             Self::Return(e) => write!(f, "return {e:?};"),
-            Self::Expression(e) => write!(f, "{e:?}"),
+            Self::Expression(e) => write!(f, "{e}"),
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
-    Str(&'static str),
     Identifier(String),
+    Integer(i64),
+    Str(&'static str),
 }
 
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Identifier(ident) => write!(f, "{ident}"),
+            Self::Integer(int) => write!(f, "{int}"),
             Self::Str(s) => write!(f, "{s}"),
         }
     }
