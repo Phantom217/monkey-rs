@@ -9,10 +9,11 @@ type Result<T> = std::result::Result<T, ParserError>;
 #[allow(dead_code)]
 #[derive(Debug)]
 enum ParserError {
-    ExpectedIdent(Token),
     ExpectedAssign(Token),
-    ExpectedToken { expected: Token, got: Token },
+    ExpectedIdent(Token),
     ExpectedPrefixToken(Token),
+    ExpectedRParen(Token),
+    ExpectedToken { expected: Token, got: Token },
     Unimplemented(Token),
 }
 
@@ -176,6 +177,7 @@ impl Parser {
             Token::Bang | Token::Minus => self.parse_prefix_expression(),
             Token::True => Ok(Expr::Boolean(true)),
             Token::False => Ok(Expr::Boolean(false)),
+            Token::LParen => self.parse_grouped_expression(),
             token => Err(ParserError::ExpectedPrefixToken(token.clone())),
         }
     }
@@ -200,6 +202,16 @@ impl Parser {
         };
 
         Ok(Expr::Infix(left, token, right))
+    }
+
+    fn parse_grouped_expression(&mut self) -> Result<Expr> {
+        self.next_token();
+
+        let exp = self.parse_expression(Precedence::Lowest)?;
+
+        self.expect_peek(Token::RParen, ParserError::ExpectedRParen)?;
+
+        Ok(exp)
     }
 
     #[cfg(test)] // function is currently not used for anything other than tests
@@ -440,12 +452,12 @@ true != false;
             ("false", "false"),
             ("3 > 5 == false", "((3 > 5) == false)"),
             ("3 < 5 == true", "((3 < 5) == true)"),
-            // ("1 + (2 + 3) + 4", "((1 + (2 + 3)) + 4)"),
-            // ("(5 + 5) * 2", "((5 + 5) * 2)"),
-            // ("2 / (5 + 5)", "(2 / (5 + 5))"),
-            // ("(5 + 5) * 2 * (5 + 5)", "(((5 + 5) * 2) * (5 + 5))"),
-            // ("-(5 + 5)", "(-(5 + 5))"),
-            // ("!(true == true)", "(!(true == true))"),
+            ("1 + (2 + 3) + 4", "((1 + (2 + 3)) + 4)"),
+            ("(5 + 5) * 2", "((5 + 5) * 2)"),
+            ("2 / (5 + 5)", "(2 / (5 + 5))"),
+            ("(5 + 5) * 2 * (5 + 5)", "(((5 + 5) * 2) * (5 + 5))"),
+            ("-(5 + 5)", "(-(5 + 5))"),
+            ("!(true == true)", "(!(true == true))"),
             // ("a + add(b * c) + d", "((a + add((b * c))) + d)"),
             // (
             //     "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))",
