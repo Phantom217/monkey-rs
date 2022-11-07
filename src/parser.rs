@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Expr, Program, Statement},
+    ast::{BlockStatement, Expr, Program, Statement},
     lexer::Lexer,
     token::Token,
 };
@@ -11,6 +11,8 @@ type Result<T> = std::result::Result<T, ParserError>;
 enum ParserError {
     ExpectedAssign(Token),
     ExpectedIdent(Token),
+    ExpectedLBrace(Token),
+    ExpectedLParen(Token),
     ExpectedPrefixToken(Token),
     ExpectedRParen(Token),
     ExpectedToken { expected: Token, got: Token },
@@ -130,6 +132,19 @@ impl Parser {
         Ok(Statement::Let(identifier, Expr::Str("")))
     }
 
+    fn parse_block_statement(&mut self) -> Result<BlockStatement> {
+        let mut block = BlockStatement::new();
+        self.next_token();
+
+        while self.cur_token != Token::RBrace && self.cur_token != Token::Eof {
+            let stmt = self.parse_statement()?;
+            block.statements.push(stmt);
+            self.next_token();
+        }
+
+        Ok(block)
+    }
+
     fn parse_return_statement(&mut self) -> Result<Statement> {
         let statement = Statement::Return(std::marker::PhantomData::<Expr>);
 
@@ -178,6 +193,7 @@ impl Parser {
             Token::True => Ok(Expr::Boolean(true)),
             Token::False => Ok(Expr::Boolean(false)),
             Token::LParen => self.parse_grouped_expression(),
+            Token::If => self.parse_if_expression(),
             token => Err(ParserError::ExpectedPrefixToken(token.clone())),
         }
     }
@@ -214,8 +230,30 @@ impl Parser {
         Ok(exp)
     }
 
-    #[cfg(test)] // function is currently not used for anything other than tests
-    fn check_parser_errors(&self) {
+    fn parse_if_expression(&mut self) -> Result<Expr> {
+        // cur_token: If, peek_token: LParen
+        self.expect_peek(Token::LParen, ParserError::ExpectedLParen)?;
+        self.next_token(); // consume LParen to get expression
+
+        let condition = Box::new(self.parse_expression(Precedence::Lowest)?);
+
+        self.expect_peek(Token::RParen, ParserError::ExpectedRParen)?;
+        self.expect_peek(Token::LBrace, ParserError::ExpectedLBrace)?;
+
+        let consequence = self.parse_block_statement()?;
+
+        let alternative = if self.peek_token == Token::Else {
+            self.next_token();
+            self.expect_peek(Token::LBrace, ParserError::ExpectedLBrace)?;
+            Some(self.parse_block_statement()?)
+        } else {
+            None
+        };
+
+        Ok(Expr::If(condition, consequence, alternative))
+    }
+
+    pub fn check_parser_errors(&self) {
         if self.errors.is_empty() {
             return;
         }
@@ -497,6 +535,52 @@ false;
             Statement::Expression(Expr::Boolean(false)),
             // Statement::Let("foobar".to_string(), Expr::Boolean(true)),
         ];
+
+        assert_eq!(program.statements, expected);
+    }
+
+    #[test]
+    fn test_if_expression() {
+        let input = "if (x < y) { x }";
+
+        let (parser, program) = init_test(input);
+        parser.check_parser_errors();
+
+        let expected = vec![Statement::Expression(Expr::If(
+            Box::new(Expr::Infix(
+                Box::new(Expr::Identifier("x".to_string())),
+                Token::Lt,
+                Box::new(Expr::Identifier("y".to_string())),
+            )),
+            BlockStatement {
+                statements: vec![Statement::Expression(Expr::Identifier("x".to_string()))],
+            },
+            None,
+        ))];
+
+        assert_eq!(program.statements, expected);
+    }
+
+    #[test]
+    fn test_if_else_expression() {
+        let input = "if (x < y) { x } else { y }";
+
+        let (parser, program) = init_test(input);
+        parser.check_parser_errors();
+
+        let expected = vec![Statement::Expression(Expr::If(
+            Box::new(Expr::Infix(
+                Box::new(Expr::Identifier("x".to_string())),
+                Token::Lt,
+                Box::new(Expr::Identifier("y".to_string())),
+            )),
+            BlockStatement {
+                statements: vec![Statement::Expression(Expr::Identifier("x".to_string()))],
+            },
+            Some(BlockStatement {
+                statements: vec![Statement::Expression(Expr::Identifier("y".to_string()))],
+            }),
+        ))];
 
         assert_eq!(program.statements, expected);
     }

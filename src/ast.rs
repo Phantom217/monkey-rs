@@ -35,7 +35,8 @@ impl fmt::Display for Statement {
 pub enum Expr {
     Boolean(bool),
     Identifier(String),
-    Infix(Box<Expr>, Token, Box<Expr>),
+    If(Box<Expr>, BlockStatement, Option<BlockStatement>), // condition, consequence, alternative
+    Infix(Box<Expr>, Token, Box<Expr>), // left expression, operator, right expression
     Integer(i64),
     Prefix(Token, Box<Expr>),
     Str(&'static str),
@@ -46,11 +47,33 @@ impl fmt::Display for Expr {
         match self {
             Self::Boolean(bool) => write!(f, "{bool}"),
             Self::Identifier(ident) => write!(f, "{ident}"),
+            Self::If(condition, consequence, alternative) => match alternative {
+                Some(alt) => write!(f, "if {condition} {consequence} else {alt}"),
+                None => write!(f, "if {condition} {consequence}"),
+            },
             Self::Infix(left, op, right) => write!(f, "({left} {op} {right})"),
             Self::Integer(int) => write!(f, "{int}"),
             Self::Prefix(token, expr) => write!(f, "({token}{expr})"),
             Self::Str(s) => write!(f, "{s}"),
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BlockStatement {
+    pub(crate) statements: Vec<Statement>,
+}
+
+impl BlockStatement {
+    pub fn new() -> Self {
+        Self { statements: vec![] }
+    }
+}
+
+impl fmt::Display for BlockStatement {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s: String = self.statements.iter().map(|x| x.to_string()).collect();
+        f.write_str(&s)
     }
 }
 
