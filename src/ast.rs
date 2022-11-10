@@ -25,7 +25,7 @@ impl fmt::Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Let(s, e) => write!(f, "let {s} = {e};"),
-            Self::Return(e) => write!(f, "return {e:?};"),
+            Self::Return(e) => write!(f, "return {e:?};"), // TODO: remove debug print
             Self::Expression(e) => write!(f, "{e}"),
         }
     }
@@ -34,6 +34,7 @@ impl fmt::Display for Statement {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Boolean(bool),
+    Function(Vec<Expr>, BlockStatement), // parameters, body
     Identifier(String),
     If(Box<Expr>, BlockStatement, Option<BlockStatement>), // condition, consequence, alternative
     Infix(Box<Expr>, Token, Box<Expr>), // left expression, operator, right expression
@@ -46,6 +47,9 @@ impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Boolean(bool) => write!(f, "{bool}"),
+            Self::Function(parameters, body) => {
+                write!(f, "fn({}) {body}", vec_to_str(&parameters))
+            }
             Self::Identifier(ident) => write!(f, "{ident}"),
             Self::If(condition, consequence, alternative) => match alternative {
                 Some(alt) => write!(f, "if {condition} {consequence} else {alt}"),
@@ -75,6 +79,14 @@ impl fmt::Display for BlockStatement {
         let s: String = self.statements.iter().map(|x| x.to_string()).collect();
         f.write_str(&s)
     }
+}
+
+fn vec_to_str<T: fmt::Display>(slice: &[T]) -> String {
+    slice
+        .iter()
+        .map(|e| e.to_string())
+        .collect::<Vec<String>>()
+        .join(", ")
 }
 
 #[cfg(test)]
