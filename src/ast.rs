@@ -34,6 +34,7 @@ impl fmt::Display for Statement {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Boolean(bool),
+    Call(Box<Expr>, Vec<Expr>),          // function, arguments
     Function(Vec<Expr>, BlockStatement), // parameters, body
     Identifier(String),
     If(Box<Expr>, BlockStatement, Option<BlockStatement>), // condition, consequence, alternative
@@ -47,6 +48,7 @@ impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Boolean(bool) => write!(f, "{bool}"),
+            Self::Call(func, args) => write!(f, "{func}({})", vec_to_str(&args)),
             Self::Function(parameters, body) => {
                 write!(f, "fn({}) {body}", vec_to_str(&parameters))
             }

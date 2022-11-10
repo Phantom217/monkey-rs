@@ -178,6 +178,10 @@ impl Parser {
                     self.next_token();
                     self.parse_infix_expression(Box::new(left_expr))?
                 }
+                Precedence::Call => {
+                    self.next_token();
+                    self.parse_call_expression(Box::new(left_expr))?
+                }
                 _ => todo!(),
             }
         }
@@ -293,6 +297,30 @@ impl Parser {
         self.expect_peek(Token::RParen, ParserError::ExpectedRParen)?;
 
         Ok(parameters)
+    }
+
+    fn parse_call_expression(&mut self, function: Box<Expr>) -> Result<Expr> {
+        let args = self.parse_call_arguments()?;
+        Ok(Expr::Call(function, args))
+    }
+
+    fn parse_call_arguments(&mut self) -> Result<Vec<Expr>> {
+        let mut args = vec![];
+
+        self.next_token();
+        if self.cur_token != Token::RParen {
+            args.push(self.parse_expression(Precedence::Lowest)?);
+
+            while self.peek_token == Token::Comma {
+                self.next_token();
+                self.next_token();
+                args.push(self.parse_expression(Precedence::Lowest)?);
+            }
+
+            self.expect_peek(Token::RParen, ParserError::ExpectedRParen)?;
+        }
+
+        Ok(args)
     }
 
     pub fn check_parser_errors(&self) {
@@ -429,6 +457,8 @@ mod test_expressions {
         let expected = vec![
             Statement::Expression(Expr::Prefix(Token::Bang, Box::new(Expr::Integer(5)))),
             Statement::Expression(Expr::Prefix(Token::Minus, Box::new(Expr::Integer(15)))),
+            // Statement::Expression(Expr::Prefix(Token::Bang, Box::new(Expr::Str("foobar")))),
+            // Statement::Expression(Expr::Prefix(Token::Minus, Box::new(Expr::Str("foobar")))),
             Statement::Expression(Expr::Prefix(Token::Bang, Box::new(Expr::Boolean(true)))),
             Statement::Expression(Expr::Prefix(Token::Bang, Box::new(Expr::Boolean(false)))),
         ];
@@ -538,15 +568,15 @@ true != false;
             ("(5 + 5) * 2 * (5 + 5)", "(((5 + 5) * 2) * (5 + 5))"),
             ("-(5 + 5)", "(-(5 + 5))"),
             ("!(true == true)", "(!(true == true))"),
-            // ("a + add(b * c) + d", "((a + add((b * c))) + d)"),
-            // (
-            //     "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))",
-            //     "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))",
-            // ),
-            // (
-            //     "add(a + b + c * d / f + g)",
-            //     "add((((a + b) + ((c * d) / f)) + g))",
-            // ),
+            ("a + add(b * c) + d", "((a + add((b * c))) + d)"),
+            (
+                "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))",
+                "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))",
+            ),
+            (
+                "add(a + b + c * d / f + g)",
+                "add((((a + b) + ((c * d) / f)) + g))",
+            ),
         ];
 
         for (input, expected) in tests {
@@ -678,6 +708,74 @@ fn(x, y, z) {};
                     Expr::Identifier("z".to_string()),
                 ],
                 BlockStatement { statements: vec![] },
+            )),
+        ];
+
+        assert_eq!(program.statements, expected);
+    }
+
+    #[test]
+    fn test_call_expression_parsing() {
+        let input = "add(1, 2 * 3, 4 + 5);";
+
+        let (parser, program) = init_test(input);
+        parser.check_parser_errors();
+
+        let expected = vec![Statement::Expression(Expr::Call(
+            Box::new(Expr::Identifier("add".to_string())),
+            vec![
+                Expr::Integer(1),
+                Expr::Infix(
+                    Box::new(Expr::Integer(2)),
+                    Token::Asterisk,
+                    Box::new(Expr::Integer(3)),
+                ),
+                Expr::Infix(
+                    Box::new(Expr::Integer(4)),
+                    Token::Plus,
+                    Box::new(Expr::Integer(5)),
+                ),
+            ],
+        ))];
+
+        assert_eq!(program.statements, expected);
+    }
+
+    #[test]
+    fn test_call_expression_parameter_parsing() {
+        let input = r"
+add();
+add(1);
+add(1, 2 * 3, 4 + 5);
+";
+
+        let (parser, program) = init_test(input);
+        parser.check_parser_errors();
+
+        let expected = vec![
+            Statement::Expression(Expr::Call(
+                Box::new(Expr::Identifier("add".to_string())),
+                vec![],
+            )),
+            Statement::Expression(Expr::Call(
+                Box::new(Expr::Identifier("add".to_string())),
+                vec![Expr::Integer(1)],
+            )),
+            Statement::Expression(Expr::Call(
+                Box::new(Expr::Identifier("add".to_string())),
+                vec![
+                    Expr::Integer(1),
+                    Expr::Infix(
+                        Box::new(Expr::Integer(2)),
+                        Token::Asterisk,
+                        Box::new(Expr::Integer(3)),
+                    ),
+                    Expr::Infix(
+                        Box::new(Expr::Integer(4)),
+                        Token::Plus,
+                        Box::new(Expr::Integer(5)),
+                    ),
+                ],
             )),
         ];
 
