@@ -1,8 +1,20 @@
 use std::io::{self, Write};
 
-use crate::{lexer::Lexer, token::Token};
+use crate::{lexer::Lexer, parser::Parser};
 
 const PROMPT: &str = ">> ";
+const MONKEY_FACE: &str = r#"            __,__
+   .--.  .-"     "-.  .--.
+  / .. \/  .-. .-.  \/ .. \
+ | |  '|  /   Y   \  |'  | |
+ | \   \  \ 0 | 0 /  /   / |
+  \ '- ,\.-"""""""-./, -' /
+   ''-' /_   ^ ^   _\ '-''
+       |  \._   _./  |
+       \   \ '~' /   /
+        '._ '-=-' _.'
+           '-----'
+"#;
 
 pub fn start() -> io::Result<()> {
     loop {
@@ -12,15 +24,26 @@ pub fn start() -> io::Result<()> {
         let mut input = String::new();
         io::stdin().read_line(&mut input)?;
 
-        let mut lexer = Lexer::new(input);
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
 
-        loop {
-            let token = lexer.next_token();
-            if token == Token::Eof {
-                break;
-            }
+        let program = parser.parse_program();
 
-            println!("{token:?}");
+        if parser.errors.len() != 0 {
+            print_parser_errors(&parser);
+            continue;
         }
+
+        println!("{program}");
+    }
+}
+
+fn print_parser_errors(parser: &Parser) {
+    println!("{MONKEY_FACE}");
+    println!("Whoops! We ran into some monkey business here!");
+    println!(" parser errors:");
+
+    for error in parser.errors.iter() {
+        println!("\t{error}");
     }
 }

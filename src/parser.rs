@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::{
     ast::{BlockStatement, Expr, Program, Statement},
     lexer::Lexer,
@@ -8,7 +10,7 @@ type Result<T> = std::result::Result<T, ParserError>;
 
 #[allow(dead_code)]
 #[derive(Debug)]
-enum ParserError {
+pub(crate) enum ParserError {
     ExpectedAssign(Token),
     ExpectedIdent(Token),
     ExpectedLBrace(Token),
@@ -17,6 +19,25 @@ enum ParserError {
     ExpectedRParen(Token),
     ExpectedToken { expected: Token, got: Token },
     Unimplemented(Token),
+}
+
+impl fmt::Display for ParserError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use ParserError::*;
+
+        let (expected, got) = match self {
+            ExpectedAssign(token) => ("=".to_string(), format!("{token}")),
+            ExpectedIdent(token) => ("ident".to_string(), format!("{token}")),
+            ExpectedLBrace(token) => ("{".to_string(), format!("{token}")),
+            ExpectedLParen(token) => ("(".to_string(), format!("{token}")),
+            ExpectedPrefixToken(token) => ("a prefix".to_string(), format!("{token}")),
+            ExpectedRParen(token) => (")".to_string(), format!("{token}")),
+            ExpectedToken { expected, got } => (format!("{expected}"), format!("{got}")),
+            Unimplemented(token) => panic!("Unimplemented Token: {token}"),
+        };
+
+        write!(f, "expected next token to be {expected}, got {got} instead")
+    }
 }
 
 #[derive(Debug, PartialEq, PartialOrd)]
@@ -48,7 +69,7 @@ pub struct Parser {
     lexer: Lexer,
     cur_token: Token,
     peek_token: Token,
-    errors: Vec<ParserError>,
+    pub(crate) errors: Vec<ParserError>,
 }
 
 impl Parser {
