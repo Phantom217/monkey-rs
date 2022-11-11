@@ -41,7 +41,6 @@ pub enum Expr {
     Infix(Box<Expr>, Token, Box<Expr>), // left expression, operator, right expression
     Integer(i64),
     Prefix(Token, Box<Expr>),
-    Str(&'static str),
 }
 
 impl fmt::Display for Expr {
@@ -60,7 +59,6 @@ impl fmt::Display for Expr {
             Self::Infix(left, op, right) => write!(f, "({left} {op} {right})"),
             Self::Integer(int) => write!(f, "{int}"),
             Self::Prefix(token, expr) => write!(f, "({token}{expr})"),
-            Self::Str(s) => write!(f, "{s}"),
         }
     }
 }
@@ -83,6 +81,7 @@ impl fmt::Display for BlockStatement {
     }
 }
 
+// Provides a string representation for a `Vec<Statement>` or `Vec<Expr>`.
 fn vec_to_str<T: fmt::Display>(slice: &[T]) -> String {
     slice
         .iter()
@@ -98,7 +97,10 @@ mod tests {
     #[test]
     fn test_fmt() {
         let program = Program {
-            statements: vec![Statement::Let("myVar".to_string(), Expr::Str("anotherVar"))],
+            statements: vec![Statement::Let(
+                "myVar".to_string(),
+                Expr::Identifier("anotherVar".to_string()),
+            )],
         };
 
         let expected = "let myVar = anotherVar;";

@@ -456,17 +456,11 @@ mod test_expressions {
 
     #[test]
     fn test_parse_prefix_expression() {
-        //         let input = r"
-        // !5;
-        // -15;
-        // !foobar;
-        // -foobar;
-        // !true;
-        // !false;
-        // ";
         let input = r"
 !5;
 -15;
+!foobar;
+-foobar;
 !true;
 !false;
 ";
@@ -477,8 +471,14 @@ mod test_expressions {
         let expected = vec![
             Statement::Expression(Expr::Prefix(Token::Bang, Box::new(Expr::Integer(5)))),
             Statement::Expression(Expr::Prefix(Token::Minus, Box::new(Expr::Integer(15)))),
-            // Statement::Expression(Expr::Prefix(Token::Bang, Box::new(Expr::Str("foobar")))),
-            // Statement::Expression(Expr::Prefix(Token::Minus, Box::new(Expr::Str("foobar")))),
+            Statement::Expression(Expr::Prefix(
+                Token::Bang,
+                Box::new(Expr::Identifier("foobar".to_string())),
+            )),
+            Statement::Expression(Expr::Prefix(
+                Token::Minus,
+                Box::new(Expr::Identifier("foobar".to_string())),
+            )),
             Statement::Expression(Expr::Prefix(Token::Bang, Box::new(Expr::Boolean(true)))),
             Statement::Expression(Expr::Prefix(Token::Bang, Box::new(Expr::Boolean(false)))),
         ];
@@ -497,8 +497,17 @@ mod test_expressions {
 5 < 5;
 5 == 5;
 5 != 5;
+foobar + barfoo;
+foobar - barfoo;
+foobar * barfoo;
+foobar / barfoo;
+foobar > barfoo;
+foobar < barfoo;
+foobar == barfoo;
+foobar != barfoo;
 true == true;
 true != false;
+false == false;
 ";
 
         let (parser, program) = init_test(input);
@@ -546,6 +555,46 @@ true != false;
                 Box::new(Expr::Integer(5)),
             )),
             Statement::Expression(Expr::Infix(
+                Box::new(Expr::Identifier("foobar".to_string())),
+                Token::Plus,
+                Box::new(Expr::Identifier("barfoo".to_string())),
+            )),
+            Statement::Expression(Expr::Infix(
+                Box::new(Expr::Identifier("foobar".to_string())),
+                Token::Minus,
+                Box::new(Expr::Identifier("barfoo".to_string())),
+            )),
+            Statement::Expression(Expr::Infix(
+                Box::new(Expr::Identifier("foobar".to_string())),
+                Token::Asterisk,
+                Box::new(Expr::Identifier("barfoo".to_string())),
+            )),
+            Statement::Expression(Expr::Infix(
+                Box::new(Expr::Identifier("foobar".to_string())),
+                Token::Slash,
+                Box::new(Expr::Identifier("barfoo".to_string())),
+            )),
+            Statement::Expression(Expr::Infix(
+                Box::new(Expr::Identifier("foobar".to_string())),
+                Token::Gt,
+                Box::new(Expr::Identifier("barfoo".to_string())),
+            )),
+            Statement::Expression(Expr::Infix(
+                Box::new(Expr::Identifier("foobar".to_string())),
+                Token::Lt,
+                Box::new(Expr::Identifier("barfoo".to_string())),
+            )),
+            Statement::Expression(Expr::Infix(
+                Box::new(Expr::Identifier("foobar".to_string())),
+                Token::Eq,
+                Box::new(Expr::Identifier("barfoo".to_string())),
+            )),
+            Statement::Expression(Expr::Infix(
+                Box::new(Expr::Identifier("foobar".to_string())),
+                Token::NotEq,
+                Box::new(Expr::Identifier("barfoo".to_string())),
+            )),
+            Statement::Expression(Expr::Infix(
                 Box::new(Expr::Boolean(true)),
                 Token::Eq,
                 Box::new(Expr::Boolean(true)),
@@ -553,6 +602,11 @@ true != false;
             Statement::Expression(Expr::Infix(
                 Box::new(Expr::Boolean(true)),
                 Token::NotEq,
+                Box::new(Expr::Boolean(false)),
+            )),
+            Statement::Expression(Expr::Infix(
+                Box::new(Expr::Boolean(false)),
+                Token::Eq,
                 Box::new(Expr::Boolean(false)),
             )),
         ];
@@ -612,12 +666,8 @@ true != false;
         let input = r"
 true;
 false;
+let foobar = true;
 ";
-        //         let input = r"
-        // true;
-        // false;
-        // let foobar = true;
-        // ";
 
         let (parser, program) = init_test(input);
         parser.check_parser_errors();
@@ -625,7 +675,7 @@ false;
         let expected = vec![
             Statement::Expression(Expr::Boolean(true)),
             Statement::Expression(Expr::Boolean(false)),
-            // Statement::Let("foobar".to_string(), Expr::Boolean(true)),
+            Statement::Let("foobar".to_string(), Expr::Boolean(true)),
         ];
 
         assert_eq!(program.statements, expected);
