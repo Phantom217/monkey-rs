@@ -118,18 +118,15 @@ impl Parser {
         // cur_token: Ident, peek_token: Assign
         self.expect_peek(Token::Assign, ParserError::ExpectedAssign)?;
 
-        // TODO: We're skipping the expressions until we encounter a semicolon
         // cur_token: Assign, peek_token: beginning of expression
         self.next_token();
-        while self.cur_token != Token::Semicolon {
+        let value = self.parse_expression(Precedence::Lowest)?;
+
+        if self.peek_token == Token::Semicolon {
             self.next_token();
         }
 
-        // if self.peek_token == Token::Semicolon {
-        //     self.next_token();
-        // }
-
-        Ok(Statement::Let(identifier, Expr::Str("")))
+        Ok(Statement::Let(identifier, value))
     }
 
     fn parse_block_statement(&mut self) -> Result<BlockStatement> {
@@ -146,13 +143,15 @@ impl Parser {
     }
 
     fn parse_return_statement(&mut self) -> Result<Statement> {
-        let statement = Statement::Return(std::marker::PhantomData::<Expr>);
+        self.next_token();
 
-        while self.cur_token != Token::Semicolon {
+        let return_value = self.parse_expression(Precedence::Lowest)?;
+
+        if self.peek_token == Token::Semicolon {
             self.next_token();
         }
 
-        Ok(statement)
+        Ok(Statement::Return(return_value))
     }
 
     fn parse_expression_statement(&mut self) -> Result<Statement> {
@@ -361,16 +360,16 @@ mod test_statements {
     fn test_let_statements() {
         let input = r"
 let x = 5;
-let y = 10;
-let foobar = 838383;
+let y = true;
+let foobar = y;
 ";
         let (parser, program) = init_test(input);
         parser.check_parser_errors();
 
         let expected = vec![
-            Statement::Let("x".to_string(), Expr::Str("")),
-            Statement::Let("y".to_string(), Expr::Str("")),
-            Statement::Let("foobar".to_string(), Expr::Str("")),
+            Statement::Let("x".to_string(), Expr::Integer(5)),
+            Statement::Let("y".to_string(), Expr::Boolean(true)),
+            Statement::Let("foobar".to_string(), Expr::Identifier("y".to_string())),
         ];
 
         assert_eq!(program.statements, expected);
@@ -380,17 +379,17 @@ let foobar = 838383;
     fn test_return_statements() {
         let input = r"
 return 5;
-return 10;
-return 993322;
+return true;
+return foobar;
 ";
 
         let (parser, program) = init_test(input);
         parser.check_parser_errors();
 
         let expected = vec![
-            Statement::Return(std::marker::PhantomData::<Expr>),
-            Statement::Return(std::marker::PhantomData::<Expr>),
-            Statement::Return(std::marker::PhantomData::<Expr>),
+            Statement::Return(Expr::Integer(5)),
+            Statement::Return(Expr::Boolean(true)),
+            Statement::Return(Expr::Identifier("foobar".to_string())),
         ];
 
         assert_eq!(program.statements, expected);

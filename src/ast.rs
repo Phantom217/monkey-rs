@@ -16,16 +16,16 @@ impl fmt::Display for Program {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
-    Let(String, Expr),                      // Let(Identifier, Value)
-    Return(std::marker::PhantomData<Expr>), // Return(Value)
-    Expression(Expr),                       // Expression(Value)
+    Let(String, Expr), // Let(Identifier, Value)
+    Return(Expr),      // Return(Value)
+    Expression(Expr),  // Expression(Value)
 }
 
 impl fmt::Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Let(s, e) => write!(f, "let {s} = {e};"),
-            Self::Return(e) => write!(f, "return {e:?};"), // TODO: remove debug print
+            Self::Return(e) => write!(f, "return {e};"),
             Self::Expression(e) => write!(f, "{e}"),
         }
     }
