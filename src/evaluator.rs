@@ -9,6 +9,16 @@ pub type Result<T> = std::result::Result<T, EvalError>;
 #[derive(Debug, PartialEq)]
 pub enum EvalError {}
 
+macro_rules! eval_boolean {
+    ( $expr:expr ) => {
+        if $expr {
+            Ok(object::TRUE)
+        } else {
+            Ok(object::FALSE)
+        }
+    };
+}
+
 pub fn eval(program: Program) -> Result<Object> {
     let mut result = Object::Null;
 
@@ -30,16 +40,15 @@ fn eval_statement(statement: &Statement) -> Result<Object> {
 fn eval_expression(expr: &Expr) -> Result<Object> {
     match expr {
         Expr::Integer(int) => Ok(Object::Integer(*int)),
-        Expr::Boolean(b) => {
-            if *b {
-                Ok(object::TRUE)
-            } else {
-                Ok(object::FALSE)
-            }
-        }
+        Expr::Boolean(b) => eval_boolean!(*b),
         Expr::Prefix(operator, expr) => {
             let right = eval_expression(expr)?;
             eval_prefix_expression(operator, right)
+        }
+        Expr::Infix(left, operator, right) => {
+            let left = eval_expression(left)?;
+            let right = eval_expression(right)?;
+            eval_infix_expression(operator, left, right)
         }
         _ => unimplemented!(),
     }
@@ -57,6 +66,38 @@ fn eval_prefix_expression(operator: &Token, right: Object) -> Result<Object> {
             Object::Integer(int) => Ok(Object::Integer(-int)),
             _ => Ok(object::NULL),
         },
+        _ => Ok(object::NULL),
+    }
+}
+
+fn eval_infix_expression(operator: &Token, left: Object, right: Object) -> Result<Object> {
+    use Object::*;
+
+    match (left, right) {
+        (Integer(l), Integer(r)) => eval_integer_infix_expression(&operator, l, r),
+        (Boolean(l), Boolean(r)) => eval_boolean_infix_expression(&operator, l, r),
+        _ => panic!(),
+    }
+}
+
+fn eval_integer_infix_expression(operator: &Token, left: i64, right: i64) -> Result<Object> {
+    match operator {
+        Token::Plus => Ok(Object::Integer(left + right)),
+        Token::Minus => Ok(Object::Integer(left - right)),
+        Token::Asterisk => Ok(Object::Integer(left * right)),
+        Token::Slash => Ok(Object::Integer(left / right)),
+        Token::Lt => eval_boolean!(left < right),
+        Token::Gt => eval_boolean!(left > right),
+        Token::Eq => eval_boolean!(left == right),
+        Token::NotEq => eval_boolean!(left != right),
+        _ => Ok(object::NULL),
+    }
+}
+
+fn eval_boolean_infix_expression(operator: &Token, left: bool, right: bool) -> Result<Object> {
+    match operator {
+        Token::Eq => eval_boolean!(left == right),
+        Token::NotEq => eval_boolean!(left != right),
         _ => Ok(object::NULL),
     }
 }
@@ -83,6 +124,17 @@ mod tests {
             ("10", Object::Integer(10)),
             ("-5", Object::Integer(-5)),
             ("-10", Object::Integer(-10)),
+            ("5 + 5 + 5 + 5 - 10", Object::Integer(10)),
+            ("2 * 2 * 2 * 2 * 2", Object::Integer(32)),
+            ("-50 + 100 + -50", Object::Integer(0)),
+            ("5 * 2 + 10", Object::Integer(20)),
+            ("5 + 2 * 10", Object::Integer(25)),
+            ("20 + 2 * -10", Object::Integer(0)),
+            ("50 / 2 * 2 + 10", Object::Integer(60)),
+            ("2 * (5 + 10)", Object::Integer(30)),
+            ("3 * 3 * 3 + 10", Object::Integer(37)),
+            ("3 * (3 * 3) + 10", Object::Integer(37)),
+            ("(5 + 10 * 2 + 15 / 3) * 2 + -10", Object::Integer(50)),
         ];
 
         run_tests!(tests);
@@ -90,7 +142,27 @@ mod tests {
 
     #[test]
     fn test_eval_boolean_expression() {
-        let tests = vec![("true", object::TRUE), ("false", object::FALSE)];
+        let tests = vec![
+            ("true", object::TRUE),
+            ("false", object::FALSE),
+            ("1 < 2", object::TRUE),
+            ("1 > 2", object::FALSE),
+            ("1 < 1", object::FALSE),
+            ("1 > 1", object::FALSE),
+            ("1 == 1", object::TRUE),
+            ("1 != 1", object::FALSE),
+            ("1 == 2", object::FALSE),
+            ("1 != 2", object::TRUE),
+            ("true == true", object::TRUE),
+            ("false == false", object::TRUE),
+            ("true == false", object::FALSE),
+            ("true != false", object::TRUE),
+            ("false != true", object::TRUE),
+            ("(1 < 2) == true", object::TRUE),
+            ("(1 < 2) == false", object::FALSE),
+            ("(1 > 2) == true", object::FALSE),
+            ("(1 > 2) == false", object::TRUE),
+        ];
 
         run_tests!(tests);
     }
