@@ -1,10 +1,21 @@
 use std::fmt;
 
-use crate::token::Token;
+use crate::{lexer::Lexer, parser::Parser, token::Token};
 
 #[derive(Debug)]
 pub struct Program {
     pub(crate) statements: Vec<Statement>,
+}
+
+impl Program {
+    pub fn new(input: &str) -> Self {
+        let lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        parser.check_parser_errors();
+
+        program
+    }
 }
 
 impl fmt::Display for Program {
