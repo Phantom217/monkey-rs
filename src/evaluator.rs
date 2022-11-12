@@ -24,6 +24,11 @@ pub fn eval(program: Program) -> Result<Object> {
 
     for statement in program.statements.iter() {
         result = eval_statement(&statement)?;
+
+        if let Object::Return(expr) = result {
+            result = *expr;
+            break;
+        }
     }
 
     Ok(result)
@@ -34,6 +39,10 @@ fn eval_block_statement(block: &BlockStatement) -> Result<Object> {
 
     for statement in block.statements.iter() {
         result = eval_statement(&statement)?;
+
+        if let Object::Return(_) = result {
+            break;
+        }
     }
 
     Ok(result)
@@ -42,7 +51,7 @@ fn eval_block_statement(block: &BlockStatement) -> Result<Object> {
 fn eval_statement(statement: &Statement) -> Result<Object> {
     match statement {
         Statement::Let(ident, expr) => todo!(),
-        Statement::Return(expr) => todo!(),
+        Statement::Return(expr) => Ok(Object::Return(Box::new(eval_expression(expr)?))),
         Statement::Expression(expr) => eval_expression(expr),
     }
 }
@@ -63,7 +72,7 @@ fn eval_expression(expr: &Expr) -> Result<Object> {
         Expr::If(condition, consequence, alternative) => {
             eval_if_expression(condition, consequence, alternative)
         }
-        _ => unimplemented!(),
+        _ => todo!(),
     }
 }
 
@@ -229,6 +238,25 @@ mod tests {
             ("if (1 > 2) { 10 }", object::NULL),
             ("if (1 > 2) { 10 } else { 20 }", Object::Integer(20)),
             ("if (1 < 2) { 10 } else { 20 }", Object::Integer(10)),
+        ];
+
+        run_tests!(tests);
+    }
+
+    #[test]
+    fn test_return_statement() {
+        let tests = vec![
+            ("return 10;", Object::Integer(10)),
+            ("return 10; 9;", Object::Integer(10)),
+            ("return 2 * 5; 9;", Object::Integer(10)),
+            ("9; return 2 * 5; 9;", Object::Integer(10)),
+            ("if (10 > 1) { return 10; }", Object::Integer(10)),
+            (
+                "if (10 > 1) { if (10 > 1) { return 10; }  return 1; } ",
+                Object::Integer(10),
+            ),
+            // ("let f = fn(x) { return x; x + 10; }; f(10);", Object::Integer(10)),
+            // ("let f = fn(x) { let result = x + 10; return result; return 10; }; f(10);", Object::Integer(20)),
         ];
 
         run_tests!(tests);

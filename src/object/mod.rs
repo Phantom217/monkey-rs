@@ -5,6 +5,7 @@ pub enum Object {
     Boolean(bool),
     Integer(i64),
     Null,
+    Return(Box<Object>),
 }
 
 pub const NULL: Object = Object::Null;
@@ -17,6 +18,7 @@ impl fmt::Display for Object {
             Self::Boolean(bool) => write!(f, "{bool}"),
             Self::Integer(int) => write!(f, "{int}"),
             Self::Null => write!(f, "null"),
+            Self::Return(object) => write!(f, "return {object}"),
         }
     }
 }
