@@ -1,6 +1,14 @@
-use std::io::{self, Write};
+use std::{
+    io::{self, Write},
+    rc::Rc,
+};
 
-use crate::{lexer::Lexer, object::environment, parser::Parser};
+use crate::{
+    evaluator,
+    lexer::Lexer,
+    object::{self, environment},
+    parser::Parser,
+};
 
 const PROMPT: &str = ">> ";
 const MONKEY_FACE: &str = r#"            __,__
@@ -29,13 +37,17 @@ pub fn start() -> io::Result<()> {
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program();
-
         if parser.errors.len() != 0 {
             print_parser_errors(&parser);
             continue;
         }
 
-        println!("{program}");
+        let evaluated = evaluator::eval(program, Rc::clone(&env));
+        match evaluated {
+            Ok(object) if object == object::NULL => continue,
+            Ok(object) => println!("{object}"),
+            Err(_) => todo!(),
+        }
     }
 }
 
