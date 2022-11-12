@@ -38,16 +38,22 @@ fn eval_expression(expr: &Expr) -> Result<Object> {
 mod tests {
     use super::*;
 
+    macro_rules! run_tests {
+        ( $tests:ident ) => {
+            for (input, expected) in $tests {
+                let program = Program::new(input);
+                let actual = eval(program);
+
+                assert_eq!(actual.unwrap(), expected);
+            }
+        };
+    }
+
     #[test]
     fn test_eval_integer_expression() {
         let tests = vec![("5", Object::Integer(5)), ("10", Object::Integer(10))];
 
-        for (input, expected) in tests {
-            let program = Program::new(input);
-            let actual = eval(program);
-
-            assert_eq!(actual.unwrap(), expected);
-        }
+        run_tests!(tests);
     }
 
     #[test]
@@ -57,11 +63,6 @@ mod tests {
             ("false", Object::Boolean(false)),
         ];
 
-        for (input, expected) in tests {
-            let program = Program::new(input);
-            let actual = eval(program);
-
-            assert_eq!(actual.unwrap(), expected);
-        }
+        run_tests!(tests);
     }
 }
