@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Expr, Program, Statement},
+    ast::{BlockStatement, Expr, Program, Statement},
     object::{self, Object},
     token::Token,
 };
@@ -20,9 +20,19 @@ macro_rules! eval_boolean {
 }
 
 pub fn eval(program: Program) -> Result<Object> {
-    let mut result = Object::Null;
+    let mut result = object::NULL;
 
-    for statement in program.statements {
+    for statement in program.statements.iter() {
+        result = eval_statement(&statement)?;
+    }
+
+    Ok(result)
+}
+
+fn eval_block_statement(block: &BlockStatement) -> Result<Object> {
+    let mut result = object::NULL;
+
+    for statement in block.statements.iter() {
         result = eval_statement(&statement)?;
     }
 
@@ -49,6 +59,9 @@ fn eval_expression(expr: &Expr) -> Result<Object> {
             let left = eval_expression(left)?;
             let right = eval_expression(right)?;
             eval_infix_expression(operator, left, right)
+        }
+        Expr::If(condition, consequence, alternative) => {
+            eval_if_expression(condition, consequence, alternative)
         }
         _ => unimplemented!(),
     }
@@ -99,6 +112,31 @@ fn eval_boolean_infix_expression(operator: &Token, left: bool, right: bool) -> R
         Token::Eq => eval_boolean!(left == right),
         Token::NotEq => eval_boolean!(left != right),
         _ => Ok(object::NULL),
+    }
+}
+
+fn eval_if_expression(
+    condition: &Expr,
+    consequence: &BlockStatement,
+    alternative: &Option<BlockStatement>,
+) -> Result<Object> {
+    let condition = eval_expression(condition)?;
+    if is_truthy(condition) {
+        eval_block_statement(consequence)
+    } else {
+        match alternative {
+            Some(alt) => eval_block_statement(alt),
+            None => Ok(object::NULL),
+        }
+    }
+}
+
+fn is_truthy(condition: Object) -> bool {
+    match condition {
+        object::NULL => false,
+        object::TRUE => true,
+        object::FALSE => false,
+        _ => true,
     }
 }
 
@@ -176,6 +214,21 @@ mod tests {
             ("!!true", object::TRUE),
             ("!!false", object::FALSE),
             ("!!5", object::TRUE),
+        ];
+
+        run_tests!(tests);
+    }
+
+    #[test]
+    fn test_if_else_expression() {
+        let tests = vec![
+            ("if (true) { 10 }", Object::Integer(10)),
+            ("if (false) { 10 }", object::NULL),
+            ("if (1) { 10 }", Object::Integer(10)),
+            ("if (1 < 2) { 10 }", Object::Integer(10)),
+            ("if (1 > 2) { 10 }", object::NULL),
+            ("if (1 > 2) { 10 } else { 20 }", Object::Integer(20)),
+            ("if (1 < 2) { 10 } else { 20 }", Object::Integer(10)),
         ];
 
         run_tests!(tests);
