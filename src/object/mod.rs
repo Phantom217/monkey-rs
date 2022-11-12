@@ -1,6 +1,8 @@
+pub mod environment;
+
 use std::fmt;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Object {
     Boolean(bool),
     Integer(i64),

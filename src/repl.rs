@@ -1,6 +1,6 @@
 use std::io::{self, Write};
 
-use crate::{lexer::Lexer, parser::Parser};
+use crate::{lexer::Lexer, object::environment, parser::Parser};
 
 const PROMPT: &str = ">> ";
 const MONKEY_FACE: &str = r#"            __,__
@@ -17,6 +17,7 @@ const MONKEY_FACE: &str = r#"            __,__
 "#;
 
 pub fn start() -> io::Result<()> {
+    let env = environment::Environment::new();
     loop {
         print!("{PROMPT}");
         io::stdout().flush()?;

@@ -1,8 +1,12 @@
-use std::fmt;
+use std::{fmt, rc::Rc};
 
 use crate::{
     ast::{BlockStatement, Expr, Program, Statement},
-    object::{self, Object},
+    object::{
+        self,
+        environment::{Environment, MutEnv},
+        Object,
+    },
     token::Token,
 };
 
@@ -11,6 +15,7 @@ pub type Result<T> = std::result::Result<T, EvalError>;
 // TODO: possibly add function location
 #[derive(Debug, PartialEq)]
 pub enum EvalError {
+    IdentifierNotFound(String),
     TypeMismatch(String),
     UnknownOperator(String),
 }
@@ -18,6 +23,7 @@ pub enum EvalError {
 impl fmt::Display for EvalError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::IdentifierNotFound(s) => write!(f, "identifier not found: {s}"),
             Self::TypeMismatch(s) => write!(f, "type mismatch: {s}"),
             Self::UnknownOperator(s) => write!(f, "unknown operator: {s}"),
         }
@@ -34,11 +40,11 @@ macro_rules! eval_boolean {
     };
 }
 
-pub fn eval(program: Program) -> Result<Object> {
+pub fn eval(program: Program, env: MutEnv) -> Result<Object> {
     let mut result = object::NULL;
 
     for statement in program.statements.iter() {
-        result = eval_statement(&statement)?;
+        result = eval_statement(&statement, Rc::clone(&env))?;
 
         if let Object::Return(expr) = result {
             result = *expr;
@@ -49,11 +55,11 @@ pub fn eval(program: Program) -> Result<Object> {
     Ok(result)
 }
 
-fn eval_block_statement(block: &BlockStatement) -> Result<Object> {
+fn eval_block_statement(block: &BlockStatement, env: MutEnv) -> Result<Object> {
     let mut result = object::NULL;
 
     for statement in block.statements.iter() {
-        result = eval_statement(&statement)?;
+        result = eval_statement(&statement, Rc::clone(&env))?;
 
         if let Object::Return(_) = result {
             break;
@@ -63,30 +69,35 @@ fn eval_block_statement(block: &BlockStatement) -> Result<Object> {
     Ok(result)
 }
 
-fn eval_statement(statement: &Statement) -> Result<Object> {
+fn eval_statement(statement: &Statement, env: MutEnv) -> Result<Object> {
     match statement {
-        Statement::Let(ident, expr) => todo!(),
-        Statement::Return(expr) => Ok(Object::Return(Box::new(eval_expression(expr)?))),
-        Statement::Expression(expr) => eval_expression(expr),
+        Statement::Return(expr) => Ok(Object::Return(Box::new(eval_expression(expr, env)?))),
+        Statement::Expression(expr) => eval_expression(expr, env),
+        Statement::Let(ident, expr) => {
+            let object = eval_expression(expr, Rc::clone(&env))?;
+            env.borrow_mut().set(ident, object);
+            Ok(object::NULL)
+        }
     }
 }
 
-fn eval_expression(expr: &Expr) -> Result<Object> {
+fn eval_expression(expr: &Expr, env: MutEnv) -> Result<Object> {
     match expr {
         Expr::Integer(int) => Ok(Object::Integer(*int)),
         Expr::Boolean(b) => eval_boolean!(*b),
         Expr::Prefix(operator, expr) => {
-            let right = eval_expression(expr)?;
+            let right = eval_expression(expr, env)?;
             eval_prefix_expression(operator, right)
         }
         Expr::Infix(left, operator, right) => {
-            let left = eval_expression(left)?;
-            let right = eval_expression(right)?;
+            let left = eval_expression(left, Rc::clone(&env))?;
+            let right = eval_expression(right, Rc::clone(&env))?;
             eval_infix_expression(operator, left, right)
         }
         Expr::If(condition, consequence, alternative) => {
-            eval_if_expression(condition, consequence, alternative)
+            eval_if_expression(condition, consequence, alternative, env)
         }
+        Expr::Identifier(ident) => eval_identifier(ident, env),
         _ => todo!(),
     }
 }
@@ -157,15 +168,23 @@ fn eval_if_expression(
     condition: &Expr,
     consequence: &BlockStatement,
     alternative: &Option<BlockStatement>,
+    env: MutEnv,
 ) -> Result<Object> {
-    let condition = eval_expression(condition)?;
+    let condition = eval_expression(condition, Rc::clone(&env))?;
     if is_truthy(condition) {
-        eval_block_statement(consequence)
+        eval_block_statement(consequence, Rc::clone(&env))
     } else {
         match alternative {
-            Some(alt) => eval_block_statement(alt),
+            Some(alt) => eval_block_statement(alt, env),
             None => Ok(object::NULL),
         }
+    }
+}
+
+fn eval_identifier(ident: &str, env: MutEnv) -> Result<Object> {
+    match env.borrow().get(ident) {
+        Some(val) => Ok(val.clone()),
+        None => Err(EvalError::IdentifierNotFound(ident.to_string())),
     }
 }
 
@@ -183,18 +202,11 @@ mod tests {
     use super::*;
 
     macro_rules! run_tests {
-        ( errors => $tests:ident ) => {
+        ( $tests:ident => $unwrapper:ident) => {
             for (input, expected) in $tests {
                 let program = Program::new(input);
-                let actual = eval(program).unwrap_err();
-
-                assert_eq!(actual, expected);
-            }
-        };
-        ( $tests:ident ) => {
-            for (input, expected) in $tests {
-                let program = Program::new(input);
-                let actual = eval(program).unwrap();
+                let env = Environment::new();
+                let actual = eval(program, env).$unwrapper();
 
                 assert_eq!(actual, expected);
             }
@@ -221,7 +233,7 @@ mod tests {
             ("(5 + 10 * 2 + 15 / 3) * 2 + -10", Object::Integer(50)),
         ];
 
-        run_tests!(tests);
+        run_tests!(tests => unwrap);
     }
 
     #[test]
@@ -248,7 +260,7 @@ mod tests {
             ("(1 > 2) == false", object::TRUE),
         ];
 
-        run_tests!(tests);
+        run_tests!(tests => unwrap);
     }
 
     #[test]
@@ -262,7 +274,7 @@ mod tests {
             ("!!5", object::TRUE),
         ];
 
-        run_tests!(tests);
+        run_tests!(tests => unwrap);
     }
 
     #[test]
@@ -277,7 +289,7 @@ mod tests {
             ("if (1 < 2) { 10 } else { 20 }", Object::Integer(10)),
         ];
 
-        run_tests!(tests);
+        run_tests!(tests => unwrap);
     }
 
     #[test]
@@ -296,7 +308,7 @@ mod tests {
             // ("let f = fn(x) { let result = x + 10; return result; return 10; }; f(10);", Object::Integer(20)),
         ];
 
-        run_tests!(tests);
+        run_tests!(tests => unwrap);
     }
 
     #[test]
@@ -339,9 +351,27 @@ if (10 > 1) {
 ",
                 EvalError::UnknownOperator("BOOLEAN + BOOLEAN".to_string()),
             ),
-            // ("foobar", EvalError::IdentifierNotFound("foobar".to_string())),
+            (
+                "foobar",
+                EvalError::IdentifierNotFound("foobar".to_string()),
+            ),
         ];
 
-        run_tests!(errors => tests);
+        run_tests!(tests => unwrap_err);
+    }
+
+    #[test]
+    fn test_let_statement() {
+        let tests = vec![
+            ("let a = 5; a;", Object::Integer(5)),
+            ("let a = 5 * 5; a;", Object::Integer(25)),
+            ("let a = 5; let b = a; b;", Object::Integer(5)),
+            (
+                "let a = 5; let b = a; let c = a + b + 5; c;",
+                Object::Integer(15),
+            ),
+        ];
+
+        run_tests!(tests => unwrap);
     }
 }
