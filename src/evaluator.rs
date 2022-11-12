@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::{
     ast::{BlockStatement, Expr, Program, Statement},
     object::{self, Object},
@@ -6,8 +8,21 @@ use crate::{
 
 pub type Result<T> = std::result::Result<T, EvalError>;
 
+// TODO: possibly add function location
 #[derive(Debug, PartialEq)]
-pub enum EvalError {}
+pub enum EvalError {
+    TypeMismatch(String),
+    UnknownOperator(String),
+}
+
+impl fmt::Display for EvalError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::TypeMismatch(s) => write!(f, "type mismatch: {s}"),
+            Self::UnknownOperator(s) => write!(f, "unknown operator: {s}"),
+        }
+    }
+}
 
 macro_rules! eval_boolean {
     ( $expr:expr ) => {
@@ -86,19 +101,30 @@ fn eval_prefix_expression(operator: &Token, right: Object) -> Result<Object> {
         },
         Token::Minus => match right {
             Object::Integer(int) => Ok(Object::Integer(-int)),
-            _ => Ok(object::NULL),
+            _ => Err(EvalError::UnknownOperator(format!(
+                "{operator}{}",
+                right.error_display()
+            ))),
         },
-        _ => Ok(object::NULL),
+        _ => Err(EvalError::UnknownOperator(format!(
+            "{operator}{}",
+            right.error_display()
+        ))),
     }
 }
 
 fn eval_infix_expression(operator: &Token, left: Object, right: Object) -> Result<Object> {
     use Object::*;
 
-    match (left, right) {
-        (Integer(l), Integer(r)) => eval_integer_infix_expression(&operator, l, r),
-        (Boolean(l), Boolean(r)) => eval_boolean_infix_expression(&operator, l, r),
-        _ => panic!(),
+    match (&left, &right) {
+        (Integer(l), Integer(r)) => eval_integer_infix_expression(&operator, *l, *r),
+        (Boolean(l), Boolean(r)) => eval_boolean_infix_expression(&operator, *l, *r),
+        _ => Err(EvalError::TypeMismatch(format!(
+            "{} {} {}",
+            left.error_display(),
+            operator,
+            right.error_display()
+        ))),
     }
 }
 
@@ -112,7 +138,7 @@ fn eval_integer_infix_expression(operator: &Token, left: i64, right: i64) -> Res
         Token::Gt => eval_boolean!(left > right),
         Token::Eq => eval_boolean!(left == right),
         Token::NotEq => eval_boolean!(left != right),
-        _ => Ok(object::NULL),
+        _ => Err(EvalError::UnknownOperator(format!("{operator}"))),
     }
 }
 
@@ -120,7 +146,10 @@ fn eval_boolean_infix_expression(operator: &Token, left: bool, right: bool) -> R
     match operator {
         Token::Eq => eval_boolean!(left == right),
         Token::NotEq => eval_boolean!(left != right),
-        _ => Ok(object::NULL),
+        _ => Err(EvalError::UnknownOperator(format!(
+            "{b} {operator} {b}",
+            b = object::TRUE.error_display()
+        ))),
     }
 }
 
@@ -154,12 +183,20 @@ mod tests {
     use super::*;
 
     macro_rules! run_tests {
+        ( errors => $tests:ident ) => {
+            for (input, expected) in $tests {
+                let program = Program::new(input);
+                let actual = eval(program).unwrap_err();
+
+                assert_eq!(actual, expected);
+            }
+        };
         ( $tests:ident ) => {
             for (input, expected) in $tests {
                 let program = Program::new(input);
-                let actual = eval(program);
+                let actual = eval(program).unwrap();
 
-                assert_eq!(actual.unwrap(), expected);
+                assert_eq!(actual, expected);
             }
         };
     }
@@ -260,5 +297,51 @@ mod tests {
         ];
 
         run_tests!(tests);
+    }
+
+    #[test]
+    fn test_error_handling() {
+        let tests = vec![
+            (
+                "5 + true;",
+                EvalError::TypeMismatch("INTEGER + BOOLEAN".to_string()),
+            ),
+            (
+                "5 + true; 5;",
+                EvalError::TypeMismatch("INTEGER + BOOLEAN".to_string()),
+            ),
+            ("-true", EvalError::UnknownOperator("-BOOLEAN".to_string())),
+            (
+                "true + false;",
+                EvalError::UnknownOperator("BOOLEAN + BOOLEAN".to_string()),
+            ),
+            (
+                "true + false + true + false;",
+                EvalError::UnknownOperator("BOOLEAN + BOOLEAN".to_string()),
+            ),
+            (
+                "5; true + false; 5",
+                EvalError::UnknownOperator("BOOLEAN + BOOLEAN".to_string()),
+            ),
+            (
+                "if (10 > 1) { true + false; }",
+                EvalError::UnknownOperator("BOOLEAN + BOOLEAN".to_string()),
+            ),
+            (
+                "
+if (10 > 1) {
+  if (10 > 1) {
+    return true + false;
+  }
+
+  return 1;
+}
+",
+                EvalError::UnknownOperator("BOOLEAN + BOOLEAN".to_string()),
+            ),
+            // ("foobar", EvalError::IdentifierNotFound("foobar".to_string())),
+        ];
+
+        run_tests!(errors => tests);
     }
 }
