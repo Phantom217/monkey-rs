@@ -1,6 +1,6 @@
 use crate::{
     ast::{Expr, Program, Statement},
-    object::Object,
+    object::{self, Object},
 };
 
 pub type Result<T> = std::result::Result<T, EvalError>;
@@ -29,7 +29,13 @@ fn eval_statement(statement: &Statement) -> Result<Object> {
 fn eval_expression(expr: &Expr) -> Result<Object> {
     match expr {
         Expr::Integer(int) => Ok(Object::Integer(*int)),
-        Expr::Boolean(b) => Ok(Object::Boolean(*b)),
+        Expr::Boolean(b) => {
+            if *b {
+                Ok(object::TRUE)
+            } else {
+                Ok(object::FALSE)
+            }
+        }
         _ => unimplemented!(),
     }
 }
