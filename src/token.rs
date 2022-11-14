@@ -1,7 +1,7 @@
 use std::fmt;
 
 /// Tokens for the monkey programming language
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Eq)]
 pub enum Token {
     Illegal(char),
     Eof,

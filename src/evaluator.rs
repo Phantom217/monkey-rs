@@ -98,7 +98,16 @@ fn eval_expression(expr: &Expr, env: MutEnv) -> Result<Object> {
             eval_if_expression(condition, consequence, alternative, env)
         }
         Expr::Identifier(ident) => eval_identifier(ident, env),
-        _ => todo!(),
+        Expr::Function(params, body) => Ok(Object::Function(
+            params.clone(),
+            body.clone(),
+            Rc::clone(&env),
+        )),
+        Expr::Call(func, args) => {
+            let func = eval_expression(func, Rc::clone(&env))?;
+            let args = eval_expressions(args, Rc::clone(&env))?;
+            apply_function(func, args)
+        }
     }
 }
 
@@ -182,10 +191,51 @@ fn eval_if_expression(
 }
 
 fn eval_identifier(ident: &str, env: MutEnv) -> Result<Object> {
-    match env.borrow().get(ident) {
-        Some(val) => Ok(val.clone()),
-        None => Err(EvalError::IdentifierNotFound(ident.to_string())),
+    // match env.borrow().get(ident) {
+    //     Some(val) => Ok(val.clone()),
+    //     None => Err(EvalError::IdentifierNotFound(ident.to_string())),
+    // }
+    let Some(val) = env.borrow().get(ident) else {
+        return Err(EvalError::IdentifierNotFound(ident.to_string()))
+    };
+    Ok(val)
+}
+
+fn eval_expressions(exprs: &[Expr], env: MutEnv) -> Result<Vec<Object>> {
+    let mut result = vec![];
+
+    for expr in exprs.iter() {
+        result.push(eval_expression(expr, Rc::clone(&env))?)
     }
+
+    Ok(result)
+}
+
+fn apply_function(function: Object, args: Vec<Object>) -> Result<Object> {
+    let Object::Function(params, body, env) = function else {
+         return Err(EvalError::TypeMismatch(format!(
+            "{} is not a function",
+            function.error_display()
+        )));
+    };
+    let extended_env = extend_function_environment(&params, args, env)?;
+    match eval_block_statement(&body, extended_env)? {
+        Object::Return(result) => Ok(*result),
+        object => Ok(object),
+    }
+}
+
+fn extend_function_environment(params: &[Expr], args: Vec<Object>, env: MutEnv) -> Result<MutEnv> {
+    let extended_env = Environment::new_enclosed(env);
+
+    for (param, arg) in params.iter().zip(args.into_iter()) {
+        let Expr::Identifier(ident) = param else {
+            return Err(EvalError::IdentifierNotFound(param.to_string()))
+        };
+        extended_env.borrow_mut().set(ident, arg);
+    }
+
+    Ok(extended_env)
 }
 
 fn is_truthy(condition: Object) -> bool {
@@ -204,11 +254,11 @@ mod tests {
     macro_rules! run_tests {
         ( $tests:ident => $unwrapper:ident) => {
             for (input, expected) in $tests {
+                let env = object::environment::Environment::new();
                 let program = Program::new(input);
-                let env = Environment::new();
                 let actual = eval(program, env).$unwrapper();
 
-                assert_eq!(actual, expected);
+                assert_eq!(actual, expected, "{input}");
             }
         };
     }
@@ -304,8 +354,14 @@ mod tests {
                 "if (10 > 1) { if (10 > 1) { return 10; }  return 1; } ",
                 Object::Integer(10),
             ),
-            // ("let f = fn(x) { return x; x + 10; }; f(10);", Object::Integer(10)),
-            // ("let f = fn(x) { let result = x + 10; return result; return 10; }; f(10);", Object::Integer(20)),
+            (
+                "let f = fn(x) { return x; x + 10; }; f(10);",
+                Object::Integer(10),
+            ),
+            (
+                "let f = fn(x) { let result = x + 10; return result; return 10; }; f(10);",
+                Object::Integer(20),
+            ),
         ];
 
         run_tests!(tests => unwrap);
@@ -371,6 +427,94 @@ if (10 > 1) {
                 Object::Integer(15),
             ),
         ];
+
+        run_tests!(tests => unwrap);
+    }
+
+    #[test]
+    fn test_function_object() {
+        let tests = vec![(
+            "fn(x) { x + 2; };",
+            Object::Function(
+                vec![Expr::Identifier("x".to_string())],
+                BlockStatement {
+                    statements: vec![Statement::Expression(Expr::Infix(
+                        Box::new(Expr::Identifier("x".to_string())),
+                        Token::Plus,
+                        Box::new(Expr::Integer(2)),
+                    ))],
+                },
+                object::environment::Environment::new(),
+            ),
+        )];
+
+        run_tests!(tests => unwrap);
+    }
+
+    #[test]
+    fn test_function_application() {
+        let tests = vec![
+            (
+                "let identity = fn(x) { x; }; identity(5);",
+                Object::Integer(5),
+            ),
+            (
+                "let identity = fn(x) { return x; }; identity(5);",
+                Object::Integer(5),
+            ),
+            (
+                "let double = fn(x) { x * 2; }; double(5);",
+                Object::Integer(10),
+            ),
+            (
+                "let add = fn(x, y) { x + y; }; add(5, 5);",
+                Object::Integer(10),
+            ),
+            (
+                "let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));",
+                Object::Integer(20),
+            ),
+            ("fn(x) { x; }(5)", Object::Integer(5)),
+        ];
+
+        run_tests!(tests => unwrap);
+    }
+
+    #[test]
+    fn test_enclosed_environment() {
+        let tests = vec![(
+            "
+let first = 10;
+let second = 10;
+let third = 10;
+
+let ourFunction = fn(first) {
+  let second = 20;
+
+  first + second + third;
+};
+
+ourFunction(20) + first + second;
+",
+            Object::Integer(70),
+        )];
+
+        run_tests!(tests => unwrap);
+    }
+
+    #[test]
+    fn test_closures() {
+        let tests = vec![(
+            "
+let newAdder = fn(x) {
+    fn(y) { x + y };
+};
+
+let addTwo = newAdder(2);
+addTwo(2);
+",
+            Object::Integer(4),
+        )];
 
         run_tests!(tests => unwrap);
     }

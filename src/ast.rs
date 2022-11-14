@@ -25,7 +25,7 @@ impl fmt::Display for Program {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Statement {
     Let(String, Expr), // Let(Identifier, Value)
     Return(Expr),      // Return(Value)
@@ -42,7 +42,7 @@ impl fmt::Display for Statement {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Expr {
     Boolean(bool),
     Call(Box<Expr>, Vec<Expr>),          // function, arguments
@@ -74,7 +74,7 @@ impl fmt::Display for Expr {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlockStatement {
     pub(crate) statements: Vec<Statement>,
 }
@@ -93,7 +93,7 @@ impl fmt::Display for BlockStatement {
 }
 
 // Provides a string representation for a `Vec<Statement>` or `Vec<Expr>`.
-fn vec_to_str<T: fmt::Display>(slice: &[T]) -> String {
+pub fn vec_to_str<T: fmt::Display>(slice: &[T]) -> String {
     slice
         .iter()
         .map(|e| e.to_string())
