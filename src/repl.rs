@@ -33,20 +33,20 @@ pub fn start() -> io::Result<()> {
         let mut input = String::new();
         io::stdin().read_line(&mut input)?;
 
-        let lexer = Lexer::new(input);
+        let lexer = Lexer::new(&input);
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program();
-        if parser.errors.len() != 0 {
+        if !parser.errors.is_empty() {
             print_parser_errors(&parser);
             continue;
         }
 
-        let evaluated = evaluator::eval(program, Rc::clone(&env));
+        let evaluated = evaluator::eval(&program, &Rc::clone(&env));
         match evaluated {
             Ok(object) if object == object::NULL => continue,
             Ok(object) => println!("{object}"),
-            Err(_) => todo!(),
+            Err(err) => println!("{err}"),
         }
     }
 }
@@ -56,7 +56,7 @@ fn print_parser_errors(parser: &Parser) {
     println!("Whoops! We ran into some monkey business here!");
     println!(" parser errors:");
 
-    for error in parser.errors.iter() {
+    for error in &parser.errors {
         println!("\t{error}");
     }
 }

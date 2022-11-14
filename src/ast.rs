@@ -9,7 +9,7 @@ pub struct Program {
 
 impl Program {
     pub fn new(input: &str) -> Self {
-        let lexer = Lexer::new(input.to_string());
+        let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
         parser.check_parser_errors();
@@ -20,7 +20,11 @@ impl Program {
 
 impl fmt::Display for Program {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s: String = self.statements.iter().map(|x| x.to_string()).collect();
+        let s: String = self
+            .statements
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect();
         f.write_str(&s)
     }
 }
@@ -58,9 +62,9 @@ impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Boolean(bool) => write!(f, "{bool}"),
-            Self::Call(func, args) => write!(f, "{func}({})", vec_to_str(&args)),
+            Self::Call(func, args) => write!(f, "{func}({})", vec_to_str(args)),
             Self::Function(parameters, body) => {
-                write!(f, "fn({}) {body}", vec_to_str(&parameters))
+                write!(f, "fn({}) {body}", vec_to_str(parameters))
             }
             Self::Identifier(ident) => write!(f, "{ident}"),
             Self::If(condition, consequence, alternative) => match alternative {
@@ -85,9 +89,19 @@ impl BlockStatement {
     }
 }
 
+impl Default for BlockStatement {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl fmt::Display for BlockStatement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s: String = self.statements.iter().map(|x| x.to_string()).collect();
+        let s: String = self
+            .statements
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect();
         f.write_str(&s)
     }
 }
@@ -96,7 +110,7 @@ impl fmt::Display for BlockStatement {
 pub fn vec_to_str<T: fmt::Display>(slice: &[T]) -> String {
     slice
         .iter()
-        .map(|e| e.to_string())
+        .map(std::string::ToString::to_string)
         .collect::<Vec<String>>()
         .join(", ")
 }

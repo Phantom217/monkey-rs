@@ -40,11 +40,11 @@ macro_rules! eval_boolean {
     };
 }
 
-pub fn eval(program: Program, env: MutEnv) -> Result<Object> {
+pub fn eval(program: &Program, env: &MutEnv) -> Result<Object> {
     let mut result = object::NULL;
 
-    for statement in program.statements.iter() {
-        result = eval_statement(&statement, Rc::clone(&env))?;
+    for statement in &program.statements {
+        result = eval_statement(statement, Rc::clone(env))?;
 
         if let Object::Return(expr) = result {
             result = *expr;
@@ -55,11 +55,11 @@ pub fn eval(program: Program, env: MutEnv) -> Result<Object> {
     Ok(result)
 }
 
-fn eval_block_statement(block: &BlockStatement, env: MutEnv) -> Result<Object> {
+fn eval_block_statement(block: &BlockStatement, env: &MutEnv) -> Result<Object> {
     let mut result = object::NULL;
 
-    for statement in block.statements.iter() {
-        result = eval_statement(&statement, Rc::clone(&env))?;
+    for statement in &block.statements {
+        result = eval_statement(statement, Rc::clone(env))?;
 
         if let Object::Return(_) = result {
             break;
@@ -87,17 +87,17 @@ fn eval_expression(expr: &Expr, env: MutEnv) -> Result<Object> {
         Expr::Boolean(b) => eval_boolean!(*b),
         Expr::Prefix(operator, expr) => {
             let right = eval_expression(expr, env)?;
-            eval_prefix_expression(operator, right)
+            eval_prefix_expression(operator, &right)
         }
         Expr::Infix(left, operator, right) => {
             let left = eval_expression(left, Rc::clone(&env))?;
             let right = eval_expression(right, Rc::clone(&env))?;
-            eval_infix_expression(operator, left, right)
+            eval_infix_expression(operator, &left, &right)
         }
         Expr::If(condition, consequence, alternative) => {
-            eval_if_expression(condition, consequence, alternative, env)
+            eval_if_expression(condition, consequence, alternative, &env)
         }
-        Expr::Identifier(ident) => eval_identifier(ident, env),
+        Expr::Identifier(ident) => eval_identifier(ident, &env),
         Expr::Function(params, body) => Ok(Object::Function(
             params.clone(),
             body.clone(),
@@ -105,18 +105,16 @@ fn eval_expression(expr: &Expr, env: MutEnv) -> Result<Object> {
         )),
         Expr::Call(func, args) => {
             let func = eval_expression(func, Rc::clone(&env))?;
-            let args = eval_expressions(args, Rc::clone(&env))?;
+            let args = eval_expressions(args, &Rc::clone(&env))?;
             apply_function(func, args)
         }
     }
 }
 
-fn eval_prefix_expression(operator: &Token, right: Object) -> Result<Object> {
+fn eval_prefix_expression(operator: &Token, right: &Object) -> Result<Object> {
     match operator {
-        Token::Bang => match right {
-            object::TRUE => Ok(object::FALSE),
-            object::FALSE => Ok(object::TRUE),
-            object::NULL => Ok(object::TRUE),
+        Token::Bang => match *right {
+            object::FALSE | object::NULL => Ok(object::TRUE),
             _ => Ok(object::FALSE),
         },
         Token::Minus => match right {
@@ -133,12 +131,12 @@ fn eval_prefix_expression(operator: &Token, right: Object) -> Result<Object> {
     }
 }
 
-fn eval_infix_expression(operator: &Token, left: Object, right: Object) -> Result<Object> {
-    use Object::*;
+fn eval_infix_expression(operator: &Token, left: &Object, right: &Object) -> Result<Object> {
+    use Object::{Boolean, Integer};
 
     match (&left, &right) {
-        (Integer(l), Integer(r)) => eval_integer_infix_expression(&operator, *l, *r),
-        (Boolean(l), Boolean(r)) => eval_boolean_infix_expression(&operator, *l, *r),
+        (Integer(l), Integer(r)) => eval_integer_infix_expression(operator, *l, *r),
+        (Boolean(l), Boolean(r)) => eval_boolean_infix_expression(operator, *l, *r),
         _ => Err(EvalError::TypeMismatch(format!(
             "{} {} {}",
             left.error_display(),
@@ -177,11 +175,11 @@ fn eval_if_expression(
     condition: &Expr,
     consequence: &BlockStatement,
     alternative: &Option<BlockStatement>,
-    env: MutEnv,
+    env: &MutEnv,
 ) -> Result<Object> {
-    let condition = eval_expression(condition, Rc::clone(&env))?;
-    if is_truthy(condition) {
-        eval_block_statement(consequence, Rc::clone(&env))
+    let condition = eval_expression(condition, Rc::clone(env))?;
+    if is_truthy(&condition) {
+        eval_block_statement(consequence, &Rc::clone(env))
     } else {
         match alternative {
             Some(alt) => eval_block_statement(alt, env),
@@ -190,22 +188,19 @@ fn eval_if_expression(
     }
 }
 
-fn eval_identifier(ident: &str, env: MutEnv) -> Result<Object> {
-    // match env.borrow().get(ident) {
-    //     Some(val) => Ok(val.clone()),
-    //     None => Err(EvalError::IdentifierNotFound(ident.to_string())),
-    // }
+fn eval_identifier(ident: &str, env: &MutEnv) -> Result<Object> {
     let Some(val) = env.borrow().get(ident) else {
         return Err(EvalError::IdentifierNotFound(ident.to_string()))
     };
+
     Ok(val)
 }
 
-fn eval_expressions(exprs: &[Expr], env: MutEnv) -> Result<Vec<Object>> {
+fn eval_expressions(exprs: &[Expr], env: &MutEnv) -> Result<Vec<Object>> {
     let mut result = vec![];
 
     for expr in exprs.iter() {
-        result.push(eval_expression(expr, Rc::clone(&env))?)
+        result.push(eval_expression(expr, Rc::clone(env))?);
     }
 
     Ok(result)
@@ -219,7 +214,7 @@ fn apply_function(function: Object, args: Vec<Object>) -> Result<Object> {
         )));
     };
     let extended_env = extend_function_environment(&params, args, env)?;
-    match eval_block_statement(&body, extended_env)? {
+    match eval_block_statement(&body, &extended_env)? {
         Object::Return(result) => Ok(*result),
         object => Ok(object),
     }
@@ -238,13 +233,8 @@ fn extend_function_environment(params: &[Expr], args: Vec<Object>, env: MutEnv) 
     Ok(extended_env)
 }
 
-fn is_truthy(condition: Object) -> bool {
-    match condition {
-        object::NULL => false,
-        object::TRUE => true,
-        object::FALSE => false,
-        _ => true,
-    }
+fn is_truthy(condition: &Object) -> bool {
+    !matches!(*condition, object::NULL | object::FALSE)
 }
 
 #[cfg(test)]
@@ -256,7 +246,7 @@ mod tests {
             for (input, expected) in $tests {
                 let env = object::environment::Environment::new();
                 let program = Program::new(input);
-                let actual = eval(program, env).$unwrapper();
+                let actual = eval(&program, &env).$unwrapper();
 
                 assert_eq!(actual, expected, "{input}");
             }

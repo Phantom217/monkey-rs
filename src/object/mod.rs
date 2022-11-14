@@ -22,11 +22,11 @@ pub const FALSE: Object = Object::Boolean(false);
 impl Object {
     pub fn error_display(&self) -> String {
         match self {
-            Self::Boolean(_) => format!("BOOLEAN"),
-            Self::Function(_, _, _) => format!("FUNCTION"),
-            Self::Integer(_) => format!("INTEGER"),
-            Self::Null => format!("NULL"),
-            Self::Return(_) => format!("RETURN"),
+            Self::Boolean(_) => "BOOLEAN".to_string(),
+            Self::Function(_, _, _) => "FUNCTION".to_string(),
+            Self::Integer(_) => "INTEGER".to_string(),
+            Self::Null => "NULL".to_string(),
+            Self::Return(_) => "RETURN".to_string(),
         }
     }
 }

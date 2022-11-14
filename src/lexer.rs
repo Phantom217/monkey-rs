@@ -22,8 +22,7 @@ impl IsLetter for char {
 }
 
 impl Lexer {
-    #[allow(dead_code)]
-    pub fn new(input: String) -> Self {
+    pub fn new(input: &str) -> Self {
         let mut lexer = Self {
             input: input.chars().collect(),
             position: 0,
@@ -81,9 +80,9 @@ impl Lexer {
             '\0' => Token::Eof,
             c if c.is_letter() => {
                 let ident = self.read_identifier();
-                return self.lookup_identifier(ident);
+                return lookup_identifier(ident);
             }
-            c if c.is_digit(10) => {
+            c if c.is_ascii_digit() => {
                 let int = self.read_number();
                 return Token::Int(int);
             }
@@ -92,19 +91,6 @@ impl Lexer {
 
         self.read_char();
         token
-    }
-
-    fn lookup_identifier(&self, ident: String) -> Token {
-        match ident.as_str() {
-            "fn" => Token::Function,
-            "let" => Token::Let,
-            "true" => Token::True,
-            "false" => Token::False,
-            "if" => Token::If,
-            "else" => Token::Else,
-            "return" => Token::Return,
-            _ => Token::Ident(ident),
-        }
     }
 
     fn read_identifier(&mut self) -> String {
@@ -117,7 +103,7 @@ impl Lexer {
 
     fn read_number(&mut self) -> i64 {
         let start = self.position;
-        while self.ch.is_digit(10) {
+        while self.ch.is_ascii_digit() {
             self.read_char();
         }
         self.input[start..self.position]
@@ -146,13 +132,26 @@ impl Iterator for Lexer {
     }
 }
 
+fn lookup_identifier(ident: String) -> Token {
+    match ident.as_str() {
+        "fn" => Token::Function,
+        "let" => Token::Let,
+        "true" => Token::True,
+        "false" => Token::False,
+        "if" => Token::If,
+        "else" => Token::Else,
+        "return" => Token::Return,
+        _ => Token::Ident(ident),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     macro_rules! input_produces_tokens {
         ( $input:ident => $tokens:ident ) => {
-            let lexer = Lexer::new($input.to_string());
+            let lexer = Lexer::new($input);
 
             for (tok, expected) in lexer.zip($tokens.iter()) {
                 assert_eq!(*expected, tok);

@@ -23,24 +23,22 @@ pub(crate) enum ParserError {
 
 impl fmt::Display for ParserError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use ParserError::*;
-
         let (expected, got) = match self {
-            ExpectedAssign(token) => ("=".to_string(), format!("{token}")),
-            ExpectedIdent(token) => ("ident".to_string(), format!("{token}")),
-            ExpectedLBrace(token) => ("{".to_string(), format!("{token}")),
-            ExpectedLParen(token) => ("(".to_string(), format!("{token}")),
-            ExpectedPrefixToken(token) => ("a prefix".to_string(), format!("{token}")),
-            ExpectedRParen(token) => (")".to_string(), format!("{token}")),
-            ExpectedToken { expected, got } => (format!("{expected}"), format!("{got}")),
-            Unimplemented(token) => panic!("Unimplemented Token: {token}"),
+            Self::ExpectedAssign(token) => ("=".to_string(), format!("{token}")),
+            Self::ExpectedIdent(token) => ("ident".to_string(), format!("{token}")),
+            Self::ExpectedLBrace(token) => ("{".to_string(), format!("{token}")),
+            Self::ExpectedLParen(token) => ("(".to_string(), format!("{token}")),
+            Self::ExpectedPrefixToken(token) => ("a prefix".to_string(), format!("{token}")),
+            Self::ExpectedRParen(token) => (")".to_string(), format!("{token}")),
+            Self::ExpectedToken { expected, got } => (format!("{expected}"), format!("{got}")),
+            Self::Unimplemented(token) => panic!("Unimplemented Token: {token}"),
         };
 
         write!(f, "expected next token to be {expected}, got {got} instead")
     }
 }
 
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
 enum Precedence {
     Lowest = 1,
     Equals,      // ==
@@ -92,11 +90,11 @@ impl Parser {
         self.cur_token = std::mem::replace(&mut self.peek_token, self.lexer.next_token());
     }
 
-    fn expect_peek<F>(&mut self, token: Token, parser_error: F) -> Result<()>
+    fn expect_peek<F>(&mut self, token: &Token, parser_error: F) -> Result<()>
     where
         F: Fn(Token) -> ParserError,
     {
-        if self.peek_token == token {
+        if self.peek_token == *token {
             self.next_token();
             Ok(())
         } else {
@@ -137,7 +135,7 @@ impl Parser {
         };
 
         // cur_token: Ident, peek_token: Assign
-        self.expect_peek(Token::Assign, ParserError::ExpectedAssign)?;
+        self.expect_peek(&Token::Assign, ParserError::ExpectedAssign)?;
 
         // cur_token: Assign, peek_token: beginning of expression
         self.next_token();
@@ -250,26 +248,26 @@ impl Parser {
 
         let exp = self.parse_expression(Precedence::Lowest)?;
 
-        self.expect_peek(Token::RParen, ParserError::ExpectedRParen)?;
+        self.expect_peek(&Token::RParen, ParserError::ExpectedRParen)?;
 
         Ok(exp)
     }
 
     fn parse_if_expression(&mut self) -> Result<Expr> {
         // cur_token: If, peek_token: LParen
-        self.expect_peek(Token::LParen, ParserError::ExpectedLParen)?;
+        self.expect_peek(&Token::LParen, ParserError::ExpectedLParen)?;
         self.next_token(); // consume LParen to get expression
 
         let condition = Box::new(self.parse_expression(Precedence::Lowest)?);
 
-        self.expect_peek(Token::RParen, ParserError::ExpectedRParen)?;
-        self.expect_peek(Token::LBrace, ParserError::ExpectedLBrace)?;
+        self.expect_peek(&Token::RParen, ParserError::ExpectedRParen)?;
+        self.expect_peek(&Token::LBrace, ParserError::ExpectedLBrace)?;
 
         let consequence = self.parse_block_statement()?;
 
         let alternative = if self.peek_token == Token::Else {
             self.next_token();
-            self.expect_peek(Token::LBrace, ParserError::ExpectedLBrace)?;
+            self.expect_peek(&Token::LBrace, ParserError::ExpectedLBrace)?;
             Some(self.parse_block_statement()?)
         } else {
             None
@@ -279,11 +277,11 @@ impl Parser {
     }
 
     fn parse_function_literal(&mut self) -> Result<Expr> {
-        self.expect_peek(Token::LParen, ParserError::ExpectedLParen)?;
+        self.expect_peek(&Token::LParen, ParserError::ExpectedLParen)?;
 
         let parameters = self.parse_function_parameters()?;
 
-        self.expect_peek(Token::LBrace, ParserError::ExpectedLBrace)?;
+        self.expect_peek(&Token::LBrace, ParserError::ExpectedLBrace)?;
 
         let body = self.parse_block_statement()?;
 
@@ -314,7 +312,7 @@ impl Parser {
             parameters.push(ident);
         }
 
-        self.expect_peek(Token::RParen, ParserError::ExpectedRParen)?;
+        self.expect_peek(&Token::RParen, ParserError::ExpectedRParen)?;
 
         Ok(parameters)
     }
@@ -337,7 +335,7 @@ impl Parser {
                 args.push(self.parse_expression(Precedence::Lowest)?);
             }
 
-            self.expect_peek(Token::RParen, ParserError::ExpectedRParen)?;
+            self.expect_peek(&Token::RParen, ParserError::ExpectedRParen)?;
         }
 
         Ok(args)
@@ -350,7 +348,7 @@ impl Parser {
 
         eprintln!("Parser has {} errors:", self.errors.len());
         for (i, error) in self.errors.iter().enumerate() {
-            eprintln!("\t{i}. {error:?}")
+            eprintln!("\t{i}. {error:?}");
         }
     }
 }
@@ -371,7 +369,7 @@ mod test_statements {
     use super::*;
 
     fn init_test(input: &str) -> (Parser, Program) {
-        let lexer = Lexer::new(input.to_string());
+        let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
         (parser, program)
@@ -422,7 +420,7 @@ mod test_expressions {
     use super::*;
 
     fn init_test(input: &str) -> (Parser, Program) {
-        let lexer = Lexer::new(input.to_string());
+        let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
         (parser, program)
