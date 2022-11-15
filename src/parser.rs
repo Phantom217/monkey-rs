@@ -126,13 +126,11 @@ impl Parser {
 
     fn parse_let_statement(&mut self) -> Result<Statement> {
         // cur_token: Let, peek_token: Ident
-        let identifier: String;
-        if let Token::Ident(ident) = &self.peek_token {
-            identifier = ident.clone();
-            self.next_token();
-        } else {
+        let Token::Ident(ident) = &self.peek_token else {
             return Err(ParserError::ExpectedIdent(self.peek_token.clone()));
         };
+        let identifier = ident.clone();
+        self.next_token();
 
         // cur_token: Ident, peek_token: Assign
         self.expect_peek(&Token::Assign, ParserError::ExpectedAssign)?;
