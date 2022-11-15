@@ -85,7 +85,7 @@ fn eval_expression(expr: &Expr, env: MutEnv) -> Result<Object> {
     match expr {
         Expr::Integer(int) => Ok(Object::Integer(*int)),
         Expr::Boolean(b) => eval_boolean!(*b),
-        Expr::String(_string) => todo!(),
+        Expr::String(string) => Ok(Object::String(string.to_string())),
         Expr::Prefix(operator, expr) => {
             let right = eval_expression(expr, env)?;
             eval_prefix_expression(operator, &right)
@@ -505,6 +505,16 @@ let addTwo = newAdder(2);
 addTwo(2);
 ",
             Object::Integer(4),
+        )];
+
+        run_tests!(tests => unwrap);
+    }
+
+    #[test]
+    fn test_string_literal() {
+        let tests = vec![(
+            "\"Hello World!\"",
+            Object::String("Hello World!".to_string()),
         )];
 
         run_tests!(tests => unwrap);

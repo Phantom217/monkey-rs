@@ -13,6 +13,7 @@ pub enum Object {
     Integer(i64),
     Null,
     Return(Box<Object>),
+    String(String),
 }
 
 pub const NULL: Object = Object::Null;
@@ -27,6 +28,7 @@ impl Object {
             Self::Integer(_) => "INTEGER".to_string(),
             Self::Null => "NULL".to_string(),
             Self::Return(_) => "RETURN".to_string(),
+            Self::String(_) => "STRING".to_string(),
         }
     }
 }
@@ -43,6 +45,7 @@ impl fmt::Display for Object {
             Self::Integer(int) => write!(f, "{int}"),
             Self::Null => write!(f, "null"),
             Self::Return(object) => write!(f, "return {object}"),
+            Self::String(string) => write!(f, "{string}"),
         }
     }
 }
