@@ -9,6 +9,7 @@ pub enum Token {
     // Identifiers + literals
     Ident(String),
     Int(i64),
+    String(String),
 
     // Operators
     Assign,
@@ -50,6 +51,7 @@ impl fmt::Debug for Token {
             Self::Eof => f.write_fmt(format_args!("Type: Eof\tLiteral: {self}")),
             Self::Ident(_) => f.write_fmt(format_args!("Type: Ident\tLiteral: {self}")),
             Self::Int(_) => f.write_fmt(format_args!("Type: Int\tLiteral: {self}")),
+            Self::String(_) => f.write_fmt(format_args!("Type: String\tLiteral: {self}")),
             Self::Assign => f.write_fmt(format_args!("Type: Assign\tLiteral: {self}")),
             Self::Plus => f.write_fmt(format_args!("Type: Plus\tLiteral: {self}")),
             Self::Minus => f.write_fmt(format_args!("Type: Minus\tLiteral: {self}")),
@@ -84,6 +86,7 @@ impl fmt::Display for Token {
             Self::Eof => f.write_str("\0"),
             Self::Ident(ident) => f.write_str(ident),
             Self::Int(int) => f.write_str(&int.to_string()),
+            Self::String(string) => f.write_str(string),
             Self::Assign => f.write_str("="),
             Self::Plus => f.write_str("+"),
             Self::Minus => f.write_str("-"),

@@ -77,6 +77,10 @@ impl Lexer {
             ')' => Token::RParen,
             '{' => Token::LBrace,
             '}' => Token::RBrace,
+            '"' => {
+                let string = self.read_string();
+                Token::String(string)
+            }
             '\0' => Token::Eof,
             c if c.is_letter() => {
                 let ident = self.read_identifier();
@@ -111,6 +115,17 @@ impl Lexer {
             .collect::<String>()
             .parse()
             .unwrap()
+    }
+
+    fn read_string(&mut self) -> String {
+        let start = self.position + 1;
+        loop {
+            self.read_char();
+            if self.ch == '"' || self.ch == '\0' {
+                break;
+            }
+        }
+        self.input[start..self.position].iter().collect()
     }
 
     fn skip_whitespace(&mut self) {
@@ -326,6 +341,22 @@ if (5 < 10) {
             Token::NotEq,
             Token::Int(9),
             Token::Semicolon,
+            Token::Eof,
+        ];
+
+        input_produces_tokens!(input => tokens);
+    }
+
+    #[test]
+    fn test_lexer_string_token() {
+        let input = r#"
+"foobar"
+"foo bar"
+"#;
+
+        let tokens = vec![
+            Token::String("foobar".to_string()),
+            Token::String("foo bar".to_string()),
             Token::Eof,
         ];
 
