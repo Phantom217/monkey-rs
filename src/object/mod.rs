@@ -2,13 +2,17 @@ pub mod environment;
 
 use std::fmt;
 
-use crate::ast::{vec_to_str, BlockStatement, Expr};
+use crate::{
+    ast::{vec_to_str, BlockStatement, Expr},
+    evaluator,
+};
 
 use self::environment::MutEnv;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Object {
     Boolean(bool),
+    Builtin(String, fn(Vec<Object>) -> evaluator::Result<Object>),
     Function(Vec<Expr>, BlockStatement, MutEnv),
     Integer(i64),
     Null,
@@ -23,13 +27,15 @@ pub const FALSE: Object = Object::Boolean(false);
 impl Object {
     pub fn error_display(&self) -> String {
         match self {
-            Self::Boolean(_) => "BOOLEAN".to_string(),
-            Self::Function(_, _, _) => "FUNCTION".to_string(),
-            Self::Integer(_) => "INTEGER".to_string(),
-            Self::Null => "NULL".to_string(),
-            Self::Return(_) => "RETURN".to_string(),
-            Self::String(_) => "STRING".to_string(),
+            Self::Boolean(_) => "BOOLEAN",
+            Self::Builtin(..) => "BUILTIN",
+            Self::Function(_, _, _) => "FUNCTION",
+            Self::Integer(_) => "INTEGER",
+            Self::Null => "NULL",
+            Self::Return(_) => "RETURN",
+            Self::String(_) => "STRING",
         }
+        .to_string()
     }
 }
 
@@ -37,6 +43,7 @@ impl fmt::Display for Object {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Boolean(bool) => write!(f, "{bool}"),
+            Self::Builtin(func, _) => write!(f, "{func}"),
             Self::Function(params, body, _) => write!(
                 f,
                 "fn({params}) {{\n {body}\n}}",
