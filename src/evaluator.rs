@@ -133,11 +133,12 @@ fn eval_prefix_expression(operator: &Token, right: &Object) -> Result<Object> {
 }
 
 fn eval_infix_expression(operator: &Token, left: &Object, right: &Object) -> Result<Object> {
-    use Object::{Boolean, Integer};
+    use Object::{Boolean, Integer, String};
 
     match (&left, &right) {
         (Integer(l), Integer(r)) => eval_integer_infix_expression(operator, *l, *r),
         (Boolean(l), Boolean(r)) => eval_boolean_infix_expression(operator, *l, *r),
+        (String(l), String(r)) => eval_string_infix_expression(operator, l, r),
         _ => Err(EvalError::TypeMismatch(format!(
             "{} {} {}",
             left.error_display(),
@@ -158,6 +159,26 @@ fn eval_integer_infix_expression(operator: &Token, left: i64, right: i64) -> Res
         Token::Eq => eval_boolean!(left == right),
         Token::NotEq => eval_boolean!(left != right),
         _ => Err(EvalError::UnknownOperator(format!("{operator}"))),
+    }
+}
+
+fn eval_string_infix_expression(operator: &Token, left: &str, right: &str) -> Result<Object> {
+    match operator {
+        Token::Plus => {
+            let s = {
+                let mut s = String::with_capacity(left.len() + right.len());
+                s.push_str(left);
+                s.push_str(right);
+                s
+            };
+
+            Ok(Object::String(s))
+        }
+        Token::Eq => eval_boolean!(left == right),
+        Token::NotEq => eval_boolean!(left != right),
+        _ => Err(EvalError::UnknownOperator(format!(
+            "STRING {operator} STRING"
+        ))),
     }
 }
 
@@ -402,6 +423,10 @@ if (10 > 1) {
                 "foobar",
                 EvalError::IdentifierNotFound("foobar".to_string()),
             ),
+            (
+                r#""Hello" - "World""#,
+                EvalError::UnknownOperator("STRING - STRING".to_string()),
+            ),
         ];
 
         run_tests!(tests => unwrap_err);
@@ -516,6 +541,26 @@ addTwo(2);
             "\"Hello World!\"",
             Object::String("Hello World!".to_string()),
         )];
+
+        run_tests!(tests => unwrap);
+    }
+
+    #[test]
+    fn test_string_concatenation() {
+        let tests = vec![(
+            r#""Hello" + " " + "World!""#,
+            Object::String("Hello World!".to_string()),
+        )];
+
+        run_tests!(tests => unwrap);
+    }
+
+    #[test]
+    fn test_string_comparison() {
+        let tests = vec![
+            (r#""Hello" == "Hello""#, object::TRUE),
+            (r#""Hello" == "World""#, object::FALSE),
+        ];
 
         run_tests!(tests => unwrap);
     }
