@@ -1,3 +1,4 @@
+pub mod builtin;
 pub mod environment;
 
 use std::fmt;
@@ -9,10 +10,12 @@ use crate::{
 
 use self::environment::MutEnv;
 
+type BuiltinFunction = fn(Vec<Object>) -> evaluator::Result<Object>;
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Object {
     Boolean(bool),
-    Builtin(String, fn(Vec<Object>) -> evaluator::Result<Object>),
+    Builtin(String, BuiltinFunction),
     Function(Vec<Expr>, BlockStatement, MutEnv),
     Integer(i64),
     Null,

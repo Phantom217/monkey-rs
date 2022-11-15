@@ -3,7 +3,7 @@ use std::{fmt, rc::Rc};
 use crate::{
     ast::{BlockStatement, Expr, Program, Statement},
     object::{
-        self,
+        self, builtin,
         environment::{Environment, MutEnv},
         Object,
     },
@@ -18,6 +18,8 @@ pub enum EvalError {
     IdentifierNotFound(String),
     TypeMismatch(String),
     UnknownOperator(String),
+    UnsupportedArgument(&'static str, String),
+    WrongNumberOfArguments(usize),
 }
 
 impl fmt::Display for EvalError {
@@ -26,6 +28,12 @@ impl fmt::Display for EvalError {
             Self::IdentifierNotFound(s) => write!(f, "identifier not found: {s}"),
             Self::TypeMismatch(s) => write!(f, "type mismatch: {s}"),
             Self::UnknownOperator(s) => write!(f, "unknown operator: {s}"),
+            Self::UnsupportedArgument(func, arg) => {
+                write!(f, "argument to {func} not supported, got {arg}",)
+            }
+            Self::WrongNumberOfArguments(i) => {
+                write!(f, "wrong number of arguments: expected 1 argument, got {i}")
+            }
         }
     }
 }
@@ -211,11 +219,15 @@ fn eval_if_expression(
 }
 
 fn eval_identifier(ident: &str, env: &MutEnv) -> Result<Object> {
-    let Some(val) = env.borrow().get(ident) else {
-        return Err(EvalError::IdentifierNotFound(ident.to_string()))
-    };
+    if let Some(val) = env.borrow().get(ident) {
+        return Ok(val);
+    }
 
-    Ok(val)
+    if let Some(builtin) = builtin::get(ident) {
+        return Ok(builtin);
+    }
+
+    return Err(EvalError::IdentifierNotFound(ident.to_string()));
 }
 
 fn eval_expressions(exprs: &[Expr], env: &MutEnv) -> Result<Vec<Object>> {
@@ -229,16 +241,19 @@ fn eval_expressions(exprs: &[Expr], env: &MutEnv) -> Result<Vec<Object>> {
 }
 
 fn apply_function(function: Object, args: Vec<Object>) -> Result<Object> {
-    let Object::Function(params, body, env) = function else {
-         return Err(EvalError::TypeMismatch(format!(
+    match function {
+        Object::Function(params, body, env) => {
+            let extended_env = extend_function_environment(&params, args, env)?;
+            match eval_block_statement(&body, &extended_env)? {
+                Object::Return(result) => Ok(*result),
+                object => Ok(object),
+            }
+        }
+        Object::Builtin(_, func) => func(args),
+        _ => Err(EvalError::TypeMismatch(format!(
             "{} is not a function",
             function.error_display()
-        )));
-    };
-    let extended_env = extend_function_environment(&params, args, env)?;
-    match eval_block_statement(&body, &extended_env)? {
-        Object::Return(result) => Ok(*result),
-        object => Ok(object),
+        ))),
     }
 }
 
@@ -563,5 +578,20 @@ addTwo(2);
         ];
 
         run_tests!(tests => unwrap);
+    }
+
+    #[test]
+    fn test_builtin_len() {
+        let tests = vec![
+            (r#"len("")"#, Object::Integer(0)),
+            (r#"len("four")"#, Object::Integer(4)),
+            (r#"len("hello world")"#, Object::Integer(11)),
+        ];
+
+        run_tests!(tests => unwrap);
+
+        // TODO: error cases for len
+        // ("len(0)", "argument to `len` not supported, got INTEGER"),
+        // (r#"len("one", "two")"#, "wrong number of arguments. got=2, want=1"),
     }
 }
