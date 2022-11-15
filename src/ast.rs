@@ -56,6 +56,7 @@ pub enum Expr {
     Infix(Box<Expr>, Token, Box<Expr>), // left expression, operator, right expression
     Integer(i64),
     Prefix(Token, Box<Expr>),
+    String(String),
 }
 
 impl fmt::Display for Expr {
@@ -74,6 +75,7 @@ impl fmt::Display for Expr {
             Self::Infix(left, op, right) => write!(f, "({left} {op} {right})"),
             Self::Integer(int) => write!(f, "{int}"),
             Self::Prefix(token, expr) => write!(f, "({token}{expr})"),
+            Self::String(string) => write!(f, "{string}"),
         }
     }
 }

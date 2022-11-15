@@ -211,6 +211,7 @@ impl Parser {
         match &self.cur_token {
             Token::Ident(ident) => Ok(Expr::Identifier(ident.clone())),
             Token::Int(int) => Ok(Expr::Integer(*int)),
+            Token::String(string) => Ok(Expr::String(string.clone())),
             Token::Bang | Token::Minus => self.parse_prefix_expression(),
             Token::True => Ok(Expr::Boolean(true)),
             Token::False => Ok(Expr::Boolean(false)),
@@ -846,6 +847,20 @@ add(1, 2 * 3, 4 + 5);
                 ],
             )),
         ];
+
+        assert_eq!(program.statements, expected);
+    }
+
+    #[test]
+    fn test_string_literal_expression() {
+        let input = r#""hello world";"#;
+
+        let (parser, program) = init_test(input);
+        parser.check_parser_errors();
+
+        let expected = vec![Statement::Expression(Expr::String(
+            "hello world".to_string(),
+        ))];
 
         assert_eq!(program.statements, expected);
     }

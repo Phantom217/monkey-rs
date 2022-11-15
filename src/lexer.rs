@@ -121,6 +121,7 @@ impl Lexer {
         let start = self.position + 1;
         loop {
             self.read_char();
+
             if self.ch == '"' || self.ch == '\0' {
                 break;
             }
@@ -357,6 +358,24 @@ if (5 < 10) {
         let tokens = vec![
             Token::String("foobar".to_string()),
             Token::String("foo bar".to_string()),
+            Token::Eof,
+        ];
+
+        input_produces_tokens!(input => tokens);
+    }
+
+    #[ignore = "not yet implemented"]
+    #[test]
+    fn test_string_character_escaping() {
+        let input = r#"
+"hello \"world\""
+"hello\n world"
+"hello\t\t\tworld"
+"#;
+        let tokens = vec![
+            Token::String("hello \"world\"".to_string()),
+            Token::String("hello\n world".to_string()),
+            Token::String("hello\t\t\tworld".to_string()),
             Token::Eof,
         ];
 

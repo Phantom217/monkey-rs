@@ -85,6 +85,7 @@ fn eval_expression(expr: &Expr, env: MutEnv) -> Result<Object> {
     match expr {
         Expr::Integer(int) => Ok(Object::Integer(*int)),
         Expr::Boolean(b) => eval_boolean!(*b),
+        Expr::String(_string) => todo!(),
         Expr::Prefix(operator, expr) => {
             let right = eval_expression(expr, env)?;
             eval_prefix_expression(operator, &right)
