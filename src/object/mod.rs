@@ -14,6 +14,7 @@ type BuiltinFunction = fn(Vec<Object>) -> evaluator::Result<Object>;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Object {
+    Array(Vec<Object>),
     Boolean(bool),
     Builtin(String, BuiltinFunction),
     Function(Vec<Expr>, BlockStatement, MutEnv),
@@ -30,13 +31,14 @@ pub const FALSE: Object = Object::Boolean(false);
 impl Object {
     pub fn error_display(&self) -> String {
         match self {
-            Self::Boolean(_) => "BOOLEAN",
+            Self::Array(..) => "ARRAY",
+            Self::Boolean(..) => "BOOLEAN",
             Self::Builtin(..) => "BUILTIN",
-            Self::Function(_, _, _) => "FUNCTION",
-            Self::Integer(_) => "INTEGER",
+            Self::Function(..) => "FUNCTION",
+            Self::Integer(..) => "INTEGER",
             Self::Null => "NULL",
-            Self::Return(_) => "RETURN",
-            Self::String(_) => "STRING",
+            Self::Return(..) => "RETURN",
+            Self::String(..) => "STRING",
         }
         .to_string()
     }
@@ -45,6 +47,7 @@ impl Object {
 impl fmt::Display for Object {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Array(xs) => write!(f, "[{}]", vec_to_str(xs)),
             Self::Boolean(bool) => write!(f, "{bool}"),
             Self::Builtin(func, _) => write!(f, "{func}"),
             Self::Function(params, body, _) => write!(

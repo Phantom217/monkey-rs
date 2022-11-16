@@ -16,7 +16,9 @@ pub type Result<T> = std::result::Result<T, EvalError>;
 #[derive(Debug, PartialEq)]
 pub enum EvalError {
     IdentifierNotFound(String),
+    IndexOutOfBounds(i64),
     TypeMismatch(String),
+    UnknownIndexOperator(String),
     UnknownOperator(String),
     UnsupportedArgument(&'static str, String),
     WrongNumberOfArguments(usize),
@@ -26,7 +28,9 @@ impl fmt::Display for EvalError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::IdentifierNotFound(s) => write!(f, "identifier not found: {s}"),
+            Self::IndexOutOfBounds(i) => write!(f, "index out of bounds: {i}"),
             Self::TypeMismatch(s) => write!(f, "type mismatch: {s}"),
+            Self::UnknownIndexOperator(s) => write!(f, "index operator not supported: {s}"),
             Self::UnknownOperator(s) => write!(f, "unknown operator: {s}"),
             Self::UnsupportedArgument(func, arg) => {
                 write!(f, "argument to {func} not supported, got {arg}",)
@@ -94,6 +98,11 @@ fn eval_expression(expr: &Expr, env: MutEnv) -> Result<Object> {
         Expr::Integer(int) => Ok(Object::Integer(*int)),
         Expr::Boolean(b) => eval_boolean!(*b),
         Expr::String(string) => Ok(Object::String(string.to_string())),
+        Expr::Array(xs) => {
+            let xs = eval_expressions(xs, &Rc::clone(&env))?;
+            Ok(Object::Array(xs))
+        }
+        Expr::Index(left, idx) => eval_index_expression(left, idx, &Rc::clone(&env)),
         Expr::Prefix(operator, expr) => {
             let right = eval_expression(expr, env)?;
             eval_prefix_expression(operator, &right)
@@ -117,8 +126,6 @@ fn eval_expression(expr: &Expr, env: MutEnv) -> Result<Object> {
             let args = eval_expressions(args, &Rc::clone(&env))?;
             apply_function(func, args)
         }
-        Expr::Array(..) => todo!(),
-        Expr::Index(..) => todo!(),
     }
 }
 
@@ -240,6 +247,21 @@ fn eval_expressions(exprs: &[Expr], env: &MutEnv) -> Result<Vec<Object>> {
     }
 
     Ok(result)
+}
+
+fn eval_index_expression(left: &Expr, idx: &Expr, env: &MutEnv) -> Result<Object> {
+    let left = eval_expression(left, Rc::clone(&env))?;
+    let idx = eval_expression(idx, Rc::clone(&env))?;
+
+    let (Object::Array(xs), &Object::Integer(idx)) = (left, &idx) else {
+        return Err(EvalError::UnknownIndexOperator(idx.error_display()));
+    };
+
+    let Some(object) = xs.get(idx as usize) else {
+        return Ok(object::NULL);
+    };
+
+    Ok(object.clone())
 }
 
 fn apply_function(function: Object, args: Vec<Object>) -> Result<Object> {
@@ -595,5 +617,43 @@ addTwo(2);
         // TODO: error cases for len
         // ("len(0)", "argument to `len` not supported, got INTEGER"),
         // (r#"len("one", "two")"#, "wrong number of arguments. got=2, want=1"),
+    }
+
+    #[test]
+    fn test_array_literals() {
+        let tests = vec![(
+            "[1, 2 * 2, 3 + 3]",
+            Object::Array(vec![
+                Object::Integer(1),
+                Object::Integer(4),
+                Object::Integer(6),
+            ]),
+        )];
+
+        run_tests!(tests => unwrap);
+    }
+
+    #[test]
+    fn test_array_index_expressions() {
+        let tests = vec![
+            ("[1, 2, 3][0]", Object::Integer(1)),
+            ("[1, 2, 3][1]", Object::Integer(2)),
+            ("[1, 2, 3][2]", Object::Integer(3)),
+            ("let i = 0; [1][i];", Object::Integer(1)),
+            ("[1, 2, 3][1 + 1];", Object::Integer(3)),
+            ("let myArray = [1, 2, 3]; myArray[2];", Object::Integer(3)),
+            (
+                "let myArray = [1, 2, 3]; myArray[0] + myArray[1] + myArray[2];",
+                Object::Integer(6),
+            ),
+            (
+                "let myArray = [1, 2, 3]; let i = myArray[0]; myArray[i]",
+                Object::Integer(2),
+            ),
+            ("[1, 2, 3][3]", object::NULL),
+            ("[1, 2, 3][-1]", object::NULL),
+        ];
+
+        run_tests!(tests => unwrap);
     }
 }
