@@ -117,6 +117,8 @@ fn eval_expression(expr: &Expr, env: MutEnv) -> Result<Object> {
             let args = eval_expressions(args, &Rc::clone(&env))?;
             apply_function(func, args)
         }
+        Expr::Array(..) => todo!(),
+        Expr::Index(..) => todo!(),
     }
 }
 

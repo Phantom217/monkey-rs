@@ -48,11 +48,13 @@ impl fmt::Display for Statement {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Expr {
+    Array(Vec<Expr>),
     Boolean(bool),
     Call(Box<Expr>, Vec<Expr>),          // function, arguments
     Function(Vec<Expr>, BlockStatement), // parameters, body
     Identifier(String),
     If(Box<Expr>, BlockStatement, Option<BlockStatement>), // condition, consequence, alternative
+    Index(Box<Expr>, Box<Expr>),                           // array, index
     Infix(Box<Expr>, Token, Box<Expr>), // left expression, operator, right expression
     Integer(i64),
     Prefix(Token, Box<Expr>),
@@ -62,6 +64,7 @@ pub enum Expr {
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Array(xs) => write!(f, "[{}]", vec_to_str(xs)),
             Self::Boolean(bool) => write!(f, "{bool}"),
             Self::Call(func, args) => write!(f, "{func}({})", vec_to_str(args)),
             Self::Function(parameters, body) => {
@@ -72,6 +75,7 @@ impl fmt::Display for Expr {
                 Some(alt) => write!(f, "if {condition} {consequence} else {alt}"),
                 None => write!(f, "if {condition} {consequence}"),
             },
+            Self::Index(left, idx) => write!(f, "({left}[{idx}])"),
             Self::Infix(left, op, right) => write!(f, "({left} {op} {right})"),
             Self::Integer(int) => write!(f, "{int}"),
             Self::Prefix(token, expr) => write!(f, "({token}{expr})"),

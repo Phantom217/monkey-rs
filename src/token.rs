@@ -33,6 +33,8 @@ pub enum Token {
     RParen,
     LBrace,
     RBrace,
+    LBracket,
+    RBracket,
 
     // Keywords
     Function,
@@ -68,6 +70,8 @@ impl fmt::Debug for Token {
             Self::RParen => f.write_fmt(format_args!("Type: RParen\tLiteral: {self}")),
             Self::LBrace => f.write_fmt(format_args!("Type: LBrace\tLiteral: {self}")),
             Self::RBrace => f.write_fmt(format_args!("Type: RBrace\tLiteral: {self}")),
+            Self::LBracket => f.write_fmt(format_args!("Type: LBracket\tLiteral: {self}")),
+            Self::RBracket => f.write_fmt(format_args!("Type: RBracket\tLiteral: {self}")),
             Self::Function => f.write_fmt(format_args!("Type: Function\tLiteral: {self}")),
             Self::Let => f.write_fmt(format_args!("Type: Let\tLiteral: {self}")),
             Self::True => f.write_fmt(format_args!("Type: True\tLiteral: {self}")),
@@ -103,6 +107,8 @@ impl fmt::Display for Token {
             Self::RParen => f.write_str(")"),
             Self::LBrace => f.write_str("{"),
             Self::RBrace => f.write_str("}"),
+            Self::LBracket => f.write_str("["),
+            Self::RBracket => f.write_str("]"),
             Self::Function => f.write_str("fn"),
             Self::Let => f.write_str("let"),
             Self::True => f.write_str("true"),

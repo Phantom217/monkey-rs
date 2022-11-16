@@ -77,6 +77,8 @@ impl Lexer {
             ')' => Token::RParen,
             '{' => Token::LBrace,
             '}' => Token::RBrace,
+            '[' => Token::LBracket,
+            ']' => Token::RBracket,
             '"' => {
                 let string = self.read_string();
                 Token::String(string)
@@ -377,6 +379,22 @@ if (5 < 10) {
             Token::String("hello\n world".to_string()),
             Token::String("hello\t\t\tworld".to_string()),
             Token::Eof,
+        ];
+
+        input_produces_tokens!(input => tokens);
+    }
+
+    #[test]
+    fn test_lexer_array() {
+        let input = "[1, 2];";
+
+        let tokens = vec![
+            Token::LBracket,
+            Token::Int(1),
+            Token::Comma,
+            Token::Int(2),
+            Token::RBracket,
+            Token::Semicolon,
         ];
 
         input_produces_tokens!(input => tokens);
