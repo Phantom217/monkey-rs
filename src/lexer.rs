@@ -73,6 +73,7 @@ impl Lexer {
             '>' => Token::Gt,
             ',' => Token::Comma,
             ';' => Token::Semicolon,
+            ':' => Token::Colon,
             '(' => Token::LParen,
             ')' => Token::RParen,
             '{' => Token::LBrace,
@@ -395,6 +396,22 @@ if (5 < 10) {
             Token::Int(2),
             Token::RBracket,
             Token::Semicolon,
+        ];
+
+        input_produces_tokens!(input => tokens);
+    }
+
+    #[test]
+    fn test_hash() {
+        let input = r#"{"foo": "bar"}"#;
+
+        let tokens = vec![
+            Token::LBrace,
+            Token::String("foo".to_string()),
+            Token::Colon,
+            Token::String("bar".to_string()),
+            Token::RBrace,
+            Token::Eof,
         ];
 
         input_produces_tokens!(input => tokens);

@@ -28,6 +28,7 @@ pub enum Token {
     // Delimiters
     Comma,
     Semicolon,
+    Colon,
 
     LParen,
     RParen,
@@ -66,6 +67,7 @@ impl fmt::Debug for Token {
             Self::NotEq => f.write_fmt(format_args!("Type: NotEq\tLiteral: {self}")),
             Self::Comma => f.write_fmt(format_args!("Type: Comma\tLiteral: {self}")),
             Self::Semicolon => f.write_fmt(format_args!("Type: Semicolon\tLiteral: {self}")),
+            Self::Colon => f.write_fmt(format_args!("Type: Colon\tLiteral: {self}")),
             Self::LParen => f.write_fmt(format_args!("Type: LParen\tLiteral: {self}")),
             Self::RParen => f.write_fmt(format_args!("Type: RParen\tLiteral: {self}")),
             Self::LBrace => f.write_fmt(format_args!("Type: LBrace\tLiteral: {self}")),
@@ -103,6 +105,7 @@ impl fmt::Display for Token {
             Self::NotEq => f.write_str("!="),
             Self::Comma => f.write_str(","),
             Self::Semicolon => f.write_str(";"),
+            Self::Colon => f.write_str(":"),
             Self::LParen => f.write_str("("),
             Self::RParen => f.write_str(")"),
             Self::LBrace => f.write_str("{"),
