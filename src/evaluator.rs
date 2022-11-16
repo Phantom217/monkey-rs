@@ -21,7 +21,7 @@ pub enum EvalError {
     UnknownIndexOperator(String),
     UnknownOperator(String),
     UnsupportedArgument(&'static str, String),
-    WrongNumberOfArguments(usize),
+    WrongNumberOfArguments(&'static str, usize, usize),
 }
 
 impl fmt::Display for EvalError {
@@ -35,8 +35,11 @@ impl fmt::Display for EvalError {
             Self::UnsupportedArgument(func, arg) => {
                 write!(f, "argument to {func} not supported, got {arg}",)
             }
-            Self::WrongNumberOfArguments(i) => {
-                write!(f, "wrong number of arguments: expected 1 argument, got {i}")
+            Self::WrongNumberOfArguments(name, expected, got) => {
+                write!(
+                    f,
+                    "wrong number of arguments to {name}: expected {expected} argument, got {got}"
+                )
             }
         }
     }
@@ -605,18 +608,52 @@ addTwo(2);
     }
 
     #[test]
-    fn test_builtin_len() {
+    fn test_builtin_passing() {
         let tests = vec![
             (r#"len("")"#, Object::Integer(0)),
             (r#"len("four")"#, Object::Integer(4)),
             (r#"len("hello world")"#, Object::Integer(11)),
+            ("len([1, 2, 3])", Object::Integer(3)),
+            ("len([])", Object::Integer(0)),
+            // (r#"puts("hello", "world!")"#, object::NULL),
+            ("first([1, 2, 3])", Object::Integer(1)),
+            ("first([])", object::NULL),
+            ("last([1, 2, 3])", Object::Integer(3)),
+            ("last([])", object::NULL),
+            (
+                "rest([1, 2, 3])",
+                Object::Array(vec![Object::Integer(2), Object::Integer(3)]),
+            ),
+            ("rest([])", object::NULL),
+            // ("push([], 1)", vec![Object::Integer(1)]),
         ];
 
         run_tests!(tests => unwrap);
+    }
 
-        // TODO: error cases for len
-        // ("len(0)", "argument to `len` not supported, got INTEGER"),
-        // (r#"len("one", "two")"#, "wrong number of arguments. got=2, want=1"),
+    #[test]
+    fn test_builtin_errors() {
+        let tests = vec![
+            (
+                "len(0)",
+                EvalError::UnsupportedArgument("len", "INTEGER".to_string()),
+            ),
+            (
+                r#"len("one", "two")"#,
+                EvalError::WrongNumberOfArguments("len", 1, 2),
+            ),
+            (
+                "first(1)",
+                EvalError::UnsupportedArgument("first", "INTEGER".to_string()),
+            ),
+            (
+                "last(1)",
+                EvalError::UnsupportedArgument("last", "INTEGER".to_string()),
+            ),
+            // ( "push(1)", EvalError::UnsupportedArgument("push", "INTEGER".to_string()), ),
+        ];
+
+        run_tests!(tests => unwrap_err);
     }
 
     #[test]
