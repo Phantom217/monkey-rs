@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{collections::BTreeMap, fmt};
 
 use crate::{lexer::Lexer, parser::Parser, token::Token};
 
@@ -29,7 +29,7 @@ impl fmt::Display for Program {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub enum Statement {
     Let(String, Expr), // Let(Identifier, Value)
     Return(Expr),      // Return(Value)
@@ -46,12 +46,13 @@ impl fmt::Display for Statement {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Expr {
     Array(Vec<Expr>),
     Boolean(bool),
     Call(Box<Expr>, Vec<Expr>),          // function, arguments
     Function(Vec<Expr>, BlockStatement), // parameters, body
+    Hash(BTreeMap<Expr, Expr>),
     Identifier(String),
     If(Box<Expr>, BlockStatement, Option<BlockStatement>), // condition, consequence, alternative
     Index(Box<Expr>, Box<Expr>),                           // array, index
@@ -70,6 +71,11 @@ impl fmt::Display for Expr {
             Self::Function(parameters, body) => {
                 write!(f, "fn({}) {body}", vec_to_str(parameters))
             }
+            Self::Hash(map) => {
+                let pairs: Vec<String> = map.iter().map(|(k, v)| format!("{k}: {v}")).collect();
+                let pairs = vec_to_str(&pairs);
+                write!(f, "{{{pairs}}}")
+            }
             Self::Identifier(ident) => write!(f, "{ident}"),
             Self::If(condition, consequence, alternative) => match alternative {
                 Some(alt) => write!(f, "if {condition} {consequence} else {alt}"),
@@ -84,7 +90,7 @@ impl fmt::Display for Expr {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct BlockStatement {
     pub(crate) statements: Vec<Statement>,
 }

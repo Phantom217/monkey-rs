@@ -106,6 +106,7 @@ fn eval_expression(expr: &Expr, env: MutEnv) -> Result<Object> {
             Ok(Object::Array(xs))
         }
         Expr::Index(left, idx) => eval_index_expression(left, idx, &Rc::clone(&env)),
+        Expr::Hash(..) => todo!(),
         Expr::Prefix(operator, expr) => {
             let right = eval_expression(expr, env)?;
             eval_prefix_expression(operator, &right)

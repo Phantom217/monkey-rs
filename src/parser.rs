@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{collections::BTreeMap, fmt};
 
 use crate::{
     ast::{BlockStatement, Expr, Program, Statement},
@@ -12,28 +12,32 @@ type Result<T> = std::result::Result<T, ParserError>;
 #[derive(Debug)]
 pub(crate) enum ParserError {
     ExpectedAssign(Token),
+    ExpectedColon(Token),
+    ExpectedComma(Token),
     ExpectedIdent(Token),
     ExpectedLBrace(Token),
     ExpectedLParen(Token),
     ExpectedPrefixToken(Token),
+    ExpectedRBrace(Token),
     ExpectedRBracket(Token),
     ExpectedRParen(Token),
     ExpectedToken { expected: Token, got: Token },
-    Unimplemented(Token),
 }
 
 impl fmt::Display for ParserError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (expected, got) = match self {
             Self::ExpectedAssign(token) => ("=".to_string(), format!("{token}")),
+            Self::ExpectedColon(token) => (":".to_string(), format!("{token}")),
+            Self::ExpectedComma(token) => (",".to_string(), format!("{token}")),
             Self::ExpectedIdent(token) => ("ident".to_string(), format!("{token}")),
             Self::ExpectedLBrace(token) => ("{".to_string(), format!("{token}")),
             Self::ExpectedLParen(token) => ("(".to_string(), format!("{token}")),
             Self::ExpectedPrefixToken(token) => ("a prefix".to_string(), format!("{token}")),
+            Self::ExpectedRBrace(token) => ("}".to_string(), format!("{token}")),
             Self::ExpectedRBracket(token) => ("]".to_string(), format!("{token}")),
             Self::ExpectedRParen(token) => (")".to_string(), format!("{token}")),
             Self::ExpectedToken { expected, got } => (format!("{expected}"), format!("{got}")),
-            Self::Unimplemented(token) => panic!("Unimplemented Token: {token}"),
         };
 
         write!(f, "expected next token to be {expected}, got {got} instead")
@@ -223,6 +227,7 @@ impl Parser {
             Token::False => Ok(Expr::Boolean(false)),
             Token::LBracket => self.parse_array_literal(),
             Token::LParen => self.parse_grouped_expression(),
+            Token::LBrace => self.parse_hash_literal(),
             Token::If => self.parse_if_expression(),
             Token::Function => self.parse_function_literal(),
             token => Err(ParserError::ExpectedPrefixToken(token.clone())),
@@ -337,6 +342,32 @@ impl Parser {
     fn parse_array_literal(&mut self) -> Result<Expr> {
         let xs = self.parse_expression_list(Token::RBracket)?;
         Ok(Expr::Array(xs))
+    }
+
+    fn parse_hash_literal(&mut self) -> Result<Expr> {
+        let mut hash = BTreeMap::new();
+
+        while self.peek_token != Token::RBrace {
+            self.next_token();
+            let key = self.parse_expression(Precedence::Lowest)?;
+
+            self.expect_peek(&Token::Colon, ParserError::ExpectedColon)?;
+
+            self.next_token();
+            let value = self.parse_expression(Precedence::Lowest)?;
+
+            hash.insert(key, value);
+
+            if self.peek_token == Token::RBrace {
+                break;
+            }
+
+            self.expect_peek(&Token::Comma, ParserError::ExpectedComma)?;
+        }
+
+        self.expect_peek(&Token::RBrace, ParserError::ExpectedRBrace)?;
+
+        Ok(Expr::Hash(hash))
     }
 
     fn parse_call_expression(&mut self, function: Box<Expr>) -> Result<Expr> {
@@ -956,6 +987,91 @@ add(1, 2 * 3, 4 + 5);
                 Box::new(Expr::Integer(1)),
             )),
         ))];
+
+        run_tests!(input => expected);
+    }
+
+    #[test]
+    fn test_parse_empty_hash_literal() {
+        let input = "{}";
+
+        let expected = vec![Statement::Expression(Expr::Hash(BTreeMap::new()))];
+
+        run_tests!(input => expected);
+    }
+
+    #[test]
+    fn test_parse_hash_literal_string_keys() {
+        let input = r#"{"one": 1, "two": 2, "three": 3}"#;
+
+        let mut map = BTreeMap::new();
+        map.insert(Expr::String("one".to_string()), Expr::Integer(1));
+        map.insert(Expr::String("two".to_string()), Expr::Integer(2));
+        map.insert(Expr::String("three".to_string()), Expr::Integer(3));
+
+        let expected = vec![Statement::Expression(Expr::Hash(map))];
+
+        run_tests!(input => expected);
+    }
+
+    #[test]
+    fn test_parse_hash_literal_boolean_keys() {
+        let input = "{true: 1, false: 2}";
+
+        let mut map = BTreeMap::new();
+        map.insert(Expr::Boolean(true), Expr::Integer(1));
+        map.insert(Expr::Boolean(false), Expr::Integer(2));
+
+        let expected = vec![Statement::Expression(Expr::Hash(map))];
+
+        run_tests!(input => expected);
+    }
+
+    #[test]
+    fn test_parse_hash_literal_integer_keys() {
+        let input = "{1: 1, 2: 2, 3: 3}";
+
+        let mut map = BTreeMap::new();
+        map.insert(Expr::Integer(1), Expr::Integer(1));
+        map.insert(Expr::Integer(2), Expr::Integer(2));
+        map.insert(Expr::Integer(3), Expr::Integer(3));
+
+        let expected = vec![Statement::Expression(Expr::Hash(map))];
+
+        run_tests!(input => expected);
+    }
+
+    #[test]
+    fn test_parse_hash_literal_with_expressions() {
+        let input = r#"{"one": 0 + 1, "two": 10 - 8, "three": 15 / 5}"#;
+
+        let mut map = BTreeMap::new();
+        map.insert(
+            Expr::String("one".to_string()),
+            Expr::Infix(
+                Box::new(Expr::Integer(0)),
+                Token::Plus,
+                Box::new(Expr::Integer(1)),
+            ),
+        );
+        map.insert(
+            Expr::String("two".to_string()),
+            Expr::Infix(
+                Box::new(Expr::Integer(10)),
+                Token::Minus,
+                Box::new(Expr::Integer(8)),
+            ),
+        );
+        map.insert(
+            Expr::String("three".to_string()),
+            Expr::Infix(
+                Box::new(Expr::Integer(15)),
+                Token::Slash,
+                Box::new(Expr::Integer(5)),
+            ),
+        );
+
+        let expected = vec![Statement::Expression(Expr::Hash(map))];
 
         run_tests!(input => expected);
     }
