@@ -1,4 +1,8 @@
-use std::{fmt, rc::Rc};
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt,
+    rc::Rc,
+};
 
 use crate::{
     ast::{BlockStatement, Expr, Program, Statement},
@@ -106,7 +110,7 @@ fn eval_expression(expr: &Expr, env: MutEnv) -> Result<Object> {
             Ok(Object::Array(xs))
         }
         Expr::Index(left, idx) => eval_index_expression(left, idx, &Rc::clone(&env)),
-        Expr::Hash(..) => todo!(),
+        Expr::Hash(map) => eval_hash_literal(map, &Rc::clone(&env)),
         Expr::Prefix(operator, expr) => {
             let right = eval_expression(expr, env)?;
             eval_prefix_expression(operator, &right)
@@ -214,6 +218,27 @@ fn eval_boolean_infix_expression(operator: &Token, left: bool, right: bool) -> R
     }
 }
 
+fn eval_hash_literal(map: &BTreeMap<Expr, Expr>, env: &MutEnv) -> Result<Object> {
+    let mut hash_map = HashMap::with_capacity(map.len());
+
+    for (key, value) in map.iter() {
+        let key = eval_expression(key, Rc::clone(&env))?;
+        let value = eval_expression(value, Rc::clone(&env))?;
+        match key {
+            Object::Boolean(_) | Object::Integer(_) | Object::String(_) => (),
+            _ => {
+                return Err(EvalError::TypeMismatch(format!(
+                    "{} is not hashable",
+                    key.error_display()
+                )))
+            }
+        }
+        hash_map.insert(key, value);
+    }
+
+    Ok(Object::Hash(hash_map))
+}
+
 fn eval_if_expression(
     condition: &Expr,
     consequence: &BlockStatement,
@@ -304,6 +329,8 @@ fn is_truthy(condition: &Object) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::*;
 
     macro_rules! run_tests {
@@ -691,6 +718,36 @@ addTwo(2);
             ("[1, 2, 3][3]", object::NULL),
             ("[1, 2, 3][-1]", object::NULL),
         ];
+
+        run_tests!(tests => unwrap);
+    }
+
+    #[test]
+    fn test_hash_literals() {
+        let map = {
+            let mut map = HashMap::with_capacity(6);
+            map.insert(Object::String("one".to_string()), Object::Integer(1));
+            map.insert(Object::String("two".to_string()), Object::Integer(2));
+            map.insert(Object::String("three".to_string()), Object::Integer(3));
+            map.insert(Object::Integer(4), Object::Integer(4));
+            map.insert(object::TRUE, Object::Integer(5));
+            map.insert(object::FALSE, Object::Integer(6));
+            map
+        };
+
+        let tests = vec![(
+            r#"
+let two = "two";
+{
+    "one": 10 - 9,
+    two: 1 + 1,
+    "thr" + "ee": 6 / 2,
+    4: 4,
+    true: 5,
+    false: 6
+}"#,
+            Object::Hash(map),
+        )];
 
         run_tests!(tests => unwrap);
     }
