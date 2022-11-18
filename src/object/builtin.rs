@@ -110,6 +110,7 @@ fn push(args: Vec<Object>) -> Result<Object> {
 }
 
 /// Prints args to stdout
+#[allow(clippy::unnecessary_wraps)]
 fn puts(args: Vec<Object>) -> Result<Object> {
     for arg in &args {
         println!("{arg}");

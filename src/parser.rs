@@ -340,7 +340,7 @@ impl Parser {
     }
 
     fn parse_array_literal(&mut self) -> Result<Expr> {
-        let xs = self.parse_expression_list(Token::RBracket)?;
+        let xs = self.parse_expression_list(&Token::RBracket)?;
         Ok(Expr::Array(xs))
     }
 
@@ -371,15 +371,15 @@ impl Parser {
     }
 
     fn parse_call_expression(&mut self, function: Box<Expr>) -> Result<Expr> {
-        let args = self.parse_expression_list(Token::RParen)?;
+        let args = self.parse_expression_list(&Token::RParen)?;
         Ok(Expr::Call(function, args))
     }
 
-    fn parse_expression_list(&mut self, end: Token) -> Result<Vec<Expr>> {
+    fn parse_expression_list(&mut self, end: &Token) -> Result<Vec<Expr>> {
         let mut list = vec![];
 
         self.next_token();
-        if self.cur_token != end {
+        if self.cur_token != *end {
             list.push(self.parse_expression(Precedence::Lowest)?);
 
             while self.peek_token == Token::Comma {
@@ -388,7 +388,7 @@ impl Parser {
                 list.push(self.parse_expression(Precedence::Lowest)?);
             }
 
-            self.expect_peek(&end, |got| ParserError::ExpectedToken {
+            self.expect_peek(end, |got| ParserError::ExpectedToken {
                 expected: end.clone(),
                 got,
             })?;

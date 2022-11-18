@@ -222,8 +222,8 @@ fn eval_hash_literal(map: &BTreeMap<Expr, Expr>, env: &MutEnv) -> Result<Object>
     let mut hash_map = HashMap::with_capacity(map.len());
 
     for (key, value) in map.iter() {
-        let key = eval_expression(key, Rc::clone(&env))?;
-        let value = eval_expression(value, Rc::clone(&env))?;
+        let key = eval_expression(key, Rc::clone(env))?;
+        let value = eval_expression(value, Rc::clone(env))?;
         match key {
             Object::Boolean(_) | Object::Integer(_) | Object::String(_) => (),
             _ => {
@@ -265,7 +265,7 @@ fn eval_identifier(ident: &str, env: &MutEnv) -> Result<Object> {
         return Ok(builtin);
     }
 
-    return Err(EvalError::IdentifierNotFound(ident.to_string()));
+    Err(EvalError::IdentifierNotFound(ident.to_string()))
 }
 
 fn eval_expressions(exprs: &[Expr], env: &MutEnv) -> Result<Vec<Object>> {
@@ -279,11 +279,15 @@ fn eval_expressions(exprs: &[Expr], env: &MutEnv) -> Result<Vec<Object>> {
 }
 
 fn eval_index_expression(left: &Expr, idx: &Expr, env: &MutEnv) -> Result<Object> {
-    let left = eval_expression(left, Rc::clone(&env))?;
-    let idx = eval_expression(idx, Rc::clone(&env))?;
+    let left = eval_expression(left, Rc::clone(env))?;
+    let idx = eval_expression(idx, Rc::clone(env))?;
 
     match (left, &idx) {
         (Object::Array(xs), &Object::Integer(idx)) => {
+            if idx < 0 {
+                // XXX: return out of bounds error? not to spec of the book, but makes more sense
+                return Ok(object::NULL);
+            };
             let Some(object) = xs.get(idx as usize) else {
                 return Ok(object::NULL);
             };
