@@ -282,15 +282,28 @@ fn eval_index_expression(left: &Expr, idx: &Expr, env: &MutEnv) -> Result<Object
     let left = eval_expression(left, Rc::clone(&env))?;
     let idx = eval_expression(idx, Rc::clone(&env))?;
 
-    let (Object::Array(xs), &Object::Integer(idx)) = (left, &idx) else {
-        return Err(EvalError::UnknownIndexOperator(idx.error_display()));
-    };
+    match (left, &idx) {
+        (Object::Array(xs), &Object::Integer(idx)) => {
+            let Some(object) = xs.get(idx as usize) else {
+                return Ok(object::NULL);
+            };
 
-    let Some(object) = xs.get(idx as usize) else {
-        return Ok(object::NULL);
-    };
-
-    Ok(object.clone())
+            Ok(object.clone())
+        }
+        (Object::Hash(map), idx) => match idx {
+            Object::Integer(_) | Object::Boolean(_) | Object::String(_) => match map.get(idx) {
+                Some(value) => Ok(value.clone()),
+                None => Ok(object::NULL),
+            },
+            _ => {
+                return Err(EvalError::TypeMismatch(format!(
+                    "{} is not hashable",
+                    idx.error_display()
+                )))
+            }
+        },
+        _ => Err(EvalError::UnknownIndexOperator(idx.error_display())),
+    }
 }
 
 fn apply_function(function: Object, args: Vec<Object>) -> Result<Object> {
@@ -496,6 +509,10 @@ if (10 > 1) {
             (
                 r#""Hello" - "World""#,
                 EvalError::UnknownOperator("STRING - STRING".to_string()),
+            ),
+            (
+                r#"{"name": "Monkey"}[fn(x) { x }];"#,
+                EvalError::TypeMismatch("FUNCTION is not hashable".to_string()),
             ),
         ];
 
@@ -748,6 +765,21 @@ let two = "two";
 }"#,
             Object::Hash(map),
         )];
+
+        run_tests!(tests => unwrap);
+    }
+
+    #[test]
+    fn test_hash_index_expressions() {
+        let tests = vec![
+            (r#"{"foo": 5}["foo"]"#, Object::Integer(5)),
+            (r#"{"foo": 5}["bar"]"#, object::NULL),
+            (r#"let key = "foo"; {"foo": 5}[key]"#, Object::Integer(5)),
+            (r#"{}["foo"]"#, object::NULL),
+            ("{5:5}[5]", Object::Integer(5)),
+            ("{true: 5}[true]", Object::Integer(5)),
+            ("{false: 5}[false]", Object::Integer(5)),
+        ];
 
         run_tests!(tests => unwrap);
     }
