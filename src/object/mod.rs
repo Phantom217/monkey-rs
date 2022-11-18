@@ -1,7 +1,11 @@
 pub mod builtin;
 pub mod environment;
 
-use std::fmt;
+use std::{
+    collections::HashMap,
+    fmt,
+    hash::{Hash, Hasher},
+};
 
 use crate::{
     ast::{vec_to_str, BlockStatement, Expr},
@@ -18,6 +22,7 @@ pub enum Object {
     Boolean(bool),
     Builtin(String, BuiltinFunction),
     Function(Vec<Expr>, BlockStatement, MutEnv),
+    Hash(HashMap<Object, Object>),
     Integer(i64),
     Null,
     Return(Box<Object>),
@@ -35,6 +40,7 @@ impl Object {
             Self::Boolean(..) => "BOOLEAN",
             Self::Builtin(..) => "BUILTIN",
             Self::Function(..) => "FUNCTION",
+            Self::Hash(..) => "HASH",
             Self::Integer(..) => "INTEGER",
             Self::Null => "NULL",
             Self::Return(..) => "RETURN",
@@ -55,10 +61,48 @@ impl fmt::Display for Object {
                 "fn({params}) {{\n {body}\n}}",
                 params = vec_to_str(params)
             ),
+            Self::Hash(map) => {
+                let pairs: Vec<String> = map.iter().map(|(k, v)| format!("{k}: {v}")).collect();
+                let pairs = vec_to_str(&pairs);
+                write!(f, "{{{pairs}}}")
+            }
             Self::Integer(int) => write!(f, "{int}"),
             Self::Null => write!(f, "null"),
             Self::Return(object) => write!(f, "return {object}"),
             Self::String(string) => write!(f, "{string}"),
         }
+    }
+}
+
+impl Hash for Object {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Object::Integer(i) => i.hash(state),
+            Object::Boolean(b) => b.hash(state),
+            Object::String(s) => s.hash(state),
+            _ => 0.hash(state),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn calculate_hash<T: Hash>(t: &T) -> u64 {
+        let mut s = std::collections::hash_map::DefaultHasher::new();
+        t.hash(&mut s);
+        s.finish()
+    }
+    #[test]
+    fn test_string_hash_key() {
+        let hello1 = Object::String("Hello World".to_string());
+        let hello2 = Object::String("Hello World".to_string());
+        let diff1 = Object::String("Hello Steve".to_string());
+        let diff2 = Object::String("Hello Steve".to_string());
+
+        assert_eq!(calculate_hash(&hello1), calculate_hash(&hello2));
+        assert_eq!(calculate_hash(&diff1), calculate_hash(&diff2));
+        assert_ne!(calculate_hash(&hello1), calculate_hash(&diff1));
     }
 }
