@@ -13,6 +13,7 @@ pub fn get(ident: &str) -> Option<Object> {
         "last" => Some(Object::Builtin(ident.to_string(), last)),
         "rest" => Some(Object::Builtin(ident.to_string(), rest)),
         "push" => Some(Object::Builtin(ident.to_string(), push)),
+        "puts" => Some(Object::Builtin(ident.to_string(), puts)),
         _ => None,
     }
 }
@@ -106,4 +107,13 @@ fn push(args: Vec<Object>) -> Result<Object> {
     };
 
     Ok(Object::Array(ys))
+}
+
+/// Prints args to stdout
+fn puts(args: Vec<Object>) -> Result<Object> {
+    for arg in &args {
+        println!("{arg}");
+    }
+
+    Ok(object::NULL)
 }
