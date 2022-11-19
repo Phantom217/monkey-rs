@@ -346,8 +346,6 @@ fn is_truthy(condition: &Object) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use super::*;
 
     macro_rules! run_tests {
@@ -450,15 +448,32 @@ mod tests {
             ("9; return 2 * 5; 9;", Object::Integer(10)),
             ("if (10 > 1) { return 10; }", Object::Integer(10)),
             (
-                "if (10 > 1) { if (10 > 1) { return 10; }  return 1; } ",
+                "
+if (10 > 1) {
+    if (10 > 1) {
+        return 10;
+    }
+    return 1;
+} ",
                 Object::Integer(10),
             ),
             (
-                "let f = fn(x) { return x; x + 10; }; f(10);",
+                "
+let f = fn(x) {
+    return x;
+    x + 10;
+};
+f(10);",
                 Object::Integer(10),
             ),
             (
-                "let f = fn(x) { let result = x + 10; return result; return 10; }; f(10);",
+                "
+let f = fn(x) {
+    let result = x + 10;
+    return result;
+    return 10;
+};
+f(10);",
                 Object::Integer(20),
             ),
         ];
@@ -491,6 +506,10 @@ mod tests {
                 EvalError::UnknownOperator("BOOLEAN + BOOLEAN".to_string()),
             ),
             (
+                r#""Hello" - "World""#,
+                EvalError::UnknownOperator("STRING - STRING".to_string()),
+            ),
+            (
                 "if (10 > 1) { true + false; }",
                 EvalError::UnknownOperator("BOOLEAN + BOOLEAN".to_string()),
             ),
@@ -511,12 +530,12 @@ if (10 > 1) {
                 EvalError::IdentifierNotFound("foobar".to_string()),
             ),
             (
-                r#""Hello" - "World""#,
-                EvalError::UnknownOperator("STRING - STRING".to_string()),
-            ),
-            (
                 r#"{"name": "Monkey"}[fn(x) { x }];"#,
                 EvalError::TypeMismatch("FUNCTION is not hashable".to_string()),
+            ),
+            (
+                "999[1]",
+                EvalError::UnknownIndexOperator("INTEGER".to_string()),
             ),
         ];
 
@@ -629,7 +648,7 @@ addTwo(2);
     #[test]
     fn test_string_literal() {
         let tests = vec![(
-            "\"Hello World!\"",
+            r#""Hello World!""#,
             Object::String("Hello World!".to_string()),
         )];
 
@@ -664,7 +683,7 @@ addTwo(2);
             (r#"len("hello world")"#, Object::Integer(11)),
             ("len([1, 2, 3])", Object::Integer(3)),
             ("len([])", Object::Integer(0)),
-            // (r#"puts("hello", "world!")"#, object::NULL),
+            (r#"puts("hello", "world!")"#, object::NULL),
             ("first([1, 2, 3])", Object::Integer(1)),
             ("first([])", object::NULL),
             ("last([1, 2, 3])", Object::Integer(3)),
@@ -674,7 +693,7 @@ addTwo(2);
                 Object::Array(vec![Object::Integer(2), Object::Integer(3)]),
             ),
             ("rest([])", object::NULL),
-            // ("push([], 1)", vec![Object::Integer(1)]),
+            ("push([], 1)", Object::Array(vec![Object::Integer(1)])),
         ];
 
         run_tests!(tests => unwrap);
@@ -684,7 +703,7 @@ addTwo(2);
     fn test_builtin_errors() {
         let tests = vec![
             (
-                "len(0)",
+                "len(1)",
                 EvalError::UnsupportedArgument("len", "INTEGER".to_string()),
             ),
             (
@@ -699,7 +718,10 @@ addTwo(2);
                 "last(1)",
                 EvalError::UnsupportedArgument("last", "INTEGER".to_string()),
             ),
-            // ( "push(1)", EvalError::UnsupportedArgument("push", "INTEGER".to_string()), ),
+            (
+                "push(1, 1)",
+                EvalError::UnsupportedArgument("push", "INTEGER".to_string()),
+            ),
         ];
 
         run_tests!(tests => unwrap_err);
@@ -780,7 +802,7 @@ let two = "two";
             (r#"{"foo": 5}["bar"]"#, object::NULL),
             (r#"let key = "foo"; {"foo": 5}[key]"#, Object::Integer(5)),
             (r#"{}["foo"]"#, object::NULL),
-            ("{5:5}[5]", Object::Integer(5)),
+            ("{5: 5}[5]", Object::Integer(5)),
             ("{true: 5}[true]", Object::Integer(5)),
             ("{false: 5}[false]", Object::Integer(5)),
         ];

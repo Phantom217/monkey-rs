@@ -105,4 +105,28 @@ mod tests {
         assert_eq!(calculate_hash(&diff1), calculate_hash(&diff2));
         assert_ne!(calculate_hash(&hello1), calculate_hash(&diff1));
     }
+
+    #[test]
+    fn test_boolean_hash_key() {
+        let true1 = Object::Boolean(true);
+        let true2 = Object::Boolean(true);
+        let false1 = Object::Boolean(false);
+        let false2 = Object::Boolean(false);
+
+        assert_eq!(calculate_hash(&true1), calculate_hash(&true2));
+        assert_eq!(calculate_hash(&false1), calculate_hash(&false2));
+        assert_ne!(calculate_hash(&true1), calculate_hash(&false1));
+    }
+
+    #[test]
+    fn test_integer_hash_key() {
+        let one1 = Object::Integer(1);
+        let one2 = Object::Integer(1);
+        let two1 = Object::Integer(2);
+        let two2 = Object::Integer(2);
+
+        assert_eq!(calculate_hash(&one1), calculate_hash(&one2));
+        assert_eq!(calculate_hash(&two1), calculate_hash(&two2));
+        assert_ne!(calculate_hash(&one1), calculate_hash(&two1));
+    }
 }
