@@ -100,6 +100,16 @@ fn eval_statement(statement: &Statement, env: MutEnv) -> Result<Object> {
     }
 }
 
+fn eval_expressions(exprs: &[Expr], env: &MutEnv) -> Result<Vec<Object>> {
+    let mut result = vec![];
+
+    for expr in exprs.iter() {
+        result.push(eval_expression(expr, Rc::clone(env))?);
+    }
+
+    Ok(result)
+}
+
 fn eval_expression(expr: &Expr, env: MutEnv) -> Result<Object> {
     match expr {
         Expr::Integer(int) => Ok(Object::Integer(*int)),
@@ -218,27 +228,6 @@ fn eval_boolean_infix_expression(operator: &Token, left: bool, right: bool) -> R
     }
 }
 
-fn eval_hash_literal(map: &BTreeMap<Expr, Expr>, env: &MutEnv) -> Result<Object> {
-    let mut hash_map = HashMap::with_capacity(map.len());
-
-    for (key, value) in map.iter() {
-        let key = eval_expression(key, Rc::clone(env))?;
-        let value = eval_expression(value, Rc::clone(env))?;
-        match key {
-            Object::Boolean(_) | Object::Integer(_) | Object::String(_) => (),
-            _ => {
-                return Err(EvalError::TypeMismatch(format!(
-                    "{} is not hashable",
-                    key.error_display()
-                )))
-            }
-        }
-        hash_map.insert(key, value);
-    }
-
-    Ok(Object::Hash(hash_map))
-}
-
 fn eval_if_expression(
     condition: &Expr,
     consequence: &BlockStatement,
@@ -254,28 +243,6 @@ fn eval_if_expression(
             None => Ok(object::NULL),
         }
     }
-}
-
-fn eval_identifier(ident: &str, env: &MutEnv) -> Result<Object> {
-    if let Some(val) = env.borrow().get(ident) {
-        return Ok(val);
-    }
-
-    if let Some(builtin) = builtin::get(ident) {
-        return Ok(builtin);
-    }
-
-    Err(EvalError::IdentifierNotFound(ident.to_string()))
-}
-
-fn eval_expressions(exprs: &[Expr], env: &MutEnv) -> Result<Vec<Object>> {
-    let mut result = vec![];
-
-    for expr in exprs.iter() {
-        result.push(eval_expression(expr, Rc::clone(env))?);
-    }
-
-    Ok(result)
 }
 
 fn eval_index_expression(left: &Expr, idx: &Expr, env: &MutEnv) -> Result<Object> {
@@ -310,6 +277,27 @@ fn eval_index_expression(left: &Expr, idx: &Expr, env: &MutEnv) -> Result<Object
     }
 }
 
+fn eval_hash_literal(map: &BTreeMap<Expr, Expr>, env: &MutEnv) -> Result<Object> {
+    let mut hash_map = HashMap::with_capacity(map.len());
+
+    for (key, value) in map.iter() {
+        let key = eval_expression(key, Rc::clone(env))?;
+        let value = eval_expression(value, Rc::clone(env))?;
+        match key {
+            Object::Boolean(_) | Object::Integer(_) | Object::String(_) => (),
+            _ => {
+                return Err(EvalError::TypeMismatch(format!(
+                    "{} is not hashable",
+                    key.error_display()
+                )))
+            }
+        }
+        hash_map.insert(key, value);
+    }
+
+    Ok(Object::Hash(hash_map))
+}
+
 fn apply_function(function: Object, args: Vec<Object>) -> Result<Object> {
     match function {
         Object::Function(params, body, env) => {
@@ -338,6 +326,18 @@ fn extend_function_environment(params: &[Expr], args: Vec<Object>, env: MutEnv) 
     }
 
     Ok(extended_env)
+}
+
+fn eval_identifier(ident: &str, env: &MutEnv) -> Result<Object> {
+    if let Some(val) = env.borrow().get(ident) {
+        return Ok(val);
+    }
+
+    if let Some(builtin) = builtin::get(ident) {
+        return Ok(builtin);
+    }
+
+    Err(EvalError::IdentifierNotFound(ident.to_string()))
 }
 
 fn is_truthy(condition: &Object) -> bool {
